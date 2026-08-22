@@ -27,3 +27,11 @@ func New(cfg DBConfig) (*DB, error) {
 	}
 	return &DB{Client: db}, nil
 }
+
+func (d *DB) Close() error {
+	sqlDB, err := d.Client.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.Close()
+}

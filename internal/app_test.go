@@ -11,7 +11,7 @@ func testConfig() AppConfig {
 }
 
 func TestHealthRoute(t *testing.T) {
-	app := NewApp(testConfig())
+	app := NewApp(testConfig(), nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()

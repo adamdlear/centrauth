@@ -6,14 +6,16 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/adamdlear/centrauth/internal/db"
 	"github.com/adamdlear/centrauth/internal/middleware"
 )
 
 type App struct {
 	server *http.Server
+	db     *db.DB
 }
 
-func NewApp(cfg AppConfig) *App {
+func NewApp(cfg AppConfig, database *db.DB) *App {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /healthz", HealthHandler)
@@ -28,6 +30,7 @@ func NewApp(cfg AppConfig) *App {
 			WriteTimeout: cfg.ServerConfig.WriteTimeout,
 			IdleTimeout:  cfg.ServerConfig.IdleTimeout,
 		},
+		db: database,
 	}
 }
 
@@ -49,6 +52,12 @@ func (a *App) Run(ctx context.Context) error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		return a.server.Shutdown(shutdownCtx)
+		if err := a.server.Shutdown(shutdownCtx); err != nil {
+			return err
+		}
+		if a.db != nil {
+			return a.db.Close()
+		}
+		return nil
 	}
 }
