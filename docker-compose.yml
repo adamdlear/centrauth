@@ -17,4 +17,22 @@ services:
       timeout: 5s
       retries: 10
     volumes:
-      - pgdata:/var/lib/postgresql/centrauth
+      - pgdata:/var/lib/postgresql
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrate
+    restart: "on-failure"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - "-dir"
+      - "/migrations"
+      - "postgres"
+      - "postgres://${DB_USERNAME}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE}?sslmode=disable"
+      - "up"
+
+volumes:
+  pgdata:
