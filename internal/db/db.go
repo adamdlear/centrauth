@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"fmt"
 
 	"gorm.io/driver/postgres"
@@ -34,4 +35,12 @@ func (d *DB) Close() error {
 		return err
 	}
 	return sqlDB.Close()
+}
+
+func (d *DB) Ping(ctx context.Context) error {
+	sqlDB, err := d.Client.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.PingContext(ctx)
 }

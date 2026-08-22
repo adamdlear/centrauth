@@ -18,7 +18,7 @@ func TestHealthRoute(t *testing.T) {
 
 	app.server.Handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("got status %d, want %d", rec.Code, http.StatusOK)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("got status %d, want %d", rec.Code, http.StatusServiceUnavailable)
 	}
 }

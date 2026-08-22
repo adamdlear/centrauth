@@ -16,22 +16,23 @@ type App struct {
 }
 
 func NewApp(cfg AppConfig, database *db.DB) *App {
+	a := &App{db: database}
+
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /healthz", HealthHandler)
+	mux.HandleFunc("GET /healthz", a.healthHandler)
 
 	handler := middleware.Logger(mux)
 
-	return &App{
-		server: &http.Server{
-			Addr:         cfg.ServerConfig.Addr,
-			Handler:      handler,
-			ReadTimeout:  cfg.ServerConfig.ReadTimeout,
-			WriteTimeout: cfg.ServerConfig.WriteTimeout,
-			IdleTimeout:  cfg.ServerConfig.IdleTimeout,
-		},
-		db: database,
+	a.server = &http.Server{
+		Addr:         cfg.ServerConfig.Addr,
+		Handler:      handler,
+		ReadTimeout:  cfg.ServerConfig.ReadTimeout,
+		WriteTimeout: cfg.ServerConfig.WriteTimeout,
+		IdleTimeout:  cfg.ServerConfig.IdleTimeout,
 	}
+
+	return a
 }
 
 func (a *App) Run(ctx context.Context) error {

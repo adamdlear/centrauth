@@ -8,16 +8,18 @@ import (
 )
 
 func TestHealthHandler(t *testing.T) {
+	app := NewApp(testConfig(), nil)
+
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rr := httptest.NewRecorder()
 
-	HealthHandler(rr, req)
+	app.server.Handler.ServeHTTP(rr, req)
 
 	resp := rr.Result()
 	defer resp.Body.Close()
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	if status := rr.Code; status != http.StatusServiceUnavailable {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusServiceUnavailable)
 	}
 
 	expectedHeader := "application/json"
@@ -25,7 +27,7 @@ func TestHealthHandler(t *testing.T) {
 		t.Errorf("handler returned wrong content type: got %v want %v", contentType, expectedHeader)
 	}
 
-	expectedBody := `{"status":"ok"}`
+	expectedBody := `{"status":"unavailable"}`
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("Failed to read body: %v", err)
