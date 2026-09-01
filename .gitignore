@@ -1,1 +1,6 @@
 .env
+coverage.out
+*.out
+/centrauth
+.DS_Store
+*.swp
