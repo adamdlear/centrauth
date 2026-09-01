@@ -17,7 +17,7 @@ services:
       timeout: 5s
       retries: 10
     volumes:
-      - pgdata:/var/lib/postgresql
+      - pgdata:/var/lib/postgresql/data
 
   migrate:
     build:
