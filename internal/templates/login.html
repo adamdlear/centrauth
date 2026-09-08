@@ -1,0 +1,44 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<div class="auth-card">
+  <h1 class="auth-title">Centrauth</h1>
+
+  {{if .Error}}<div class="alert" role="alert">{{.Error}}</div>{{end}}
+
+  <div class="tabs" role="tablist">
+    <button type="button" class="tab is-active" data-panel="signin" role="tab" aria-selected="true" aria-controls="signin">Sign In</button>
+    <button type="button" class="tab" data-panel="signup" role="tab" aria-selected="false" aria-controls="signup">Create Account</button>
+  </div>
+
+  <form id="signin" action="/auth/login" method="post" class="auth-form is-active">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <div class="field">
+      <label for="signin-email">Email</label>
+      <input id="signin-email" type="email" name="email" autocomplete="email" required>
+    </div>
+    <div class="field">
+      <label for="signin-password">Password</label>
+      <input id="signin-password" type="password" name="password" autocomplete="current-password" required>
+    </div>
+    <button type="submit">Sign In</button>
+  </form>
+
+  <form id="signup" action="/auth/register" method="post" class="auth-form">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <div class="field">
+      <label for="signup-email">Email</label>
+      <input id="signup-email" type="email" name="email" autocomplete="email" required>
+    </div>
+    <div class="field">
+      <label for="signup-password">Password</label>
+      <input id="signup-password" type="password" name="password" autocomplete="new-password" required>
+    </div>
+    <div class="field">
+      <label for="signup-password-confirm">Confirm Password</label>
+      <input id="signup-password-confirm" type="password" name="password_confirm" autocomplete="new-password" required>
+    </div>
+    <button type="submit">Create Account</button>
+  </form>
+</div>
+{{end}}
