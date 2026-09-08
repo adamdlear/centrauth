@@ -8,12 +8,12 @@ import (
 )
 
 func TestHealthHandler(t *testing.T) {
-	app := NewApp(testConfig(), nil)
+	app := newTestApp()
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rr := httptest.NewRecorder()
 
-	app.server.Handler.ServeHTTP(rr, req)
+	app.routes().ServeHTTP(rr, req)
 
 	resp := rr.Result()
 	defer resp.Body.Close()

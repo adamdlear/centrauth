@@ -2,37 +2,66 @@ package internal
 
 import (
 	"context"
+	"embed"
 	"errors"
+	"io/fs"
 	"net/http"
 	"time"
 
 	"github.com/adamdlear/centrauth/internal/db"
 	"github.com/adamdlear/centrauth/internal/middleware"
+	"github.com/adamdlear/centrauth/internal/repository"
+	"github.com/adamdlear/centrauth/internal/service"
 )
 
 type App struct {
-	server *http.Server
-	db     *db.DB
+	server    *http.Server
+	db        *db.DB
+	templates *templates
+	login     *service.LoginService
 }
 
+//go:embed static/*
+var staticFiles embed.FS
+
 func NewApp(cfg AppConfig, database *db.DB) *App {
-	a := &App{db: database}
+	if database == nil {
+		panic("centrauth: NewApp requires a non-nil database")
+	}
 
-	mux := http.NewServeMux()
+	userRepo := repository.NewGormUserRepo(database.Client)
+	credRepo := repository.NewGormCredentialRepo(database.Client)
 
-	mux.HandleFunc("GET /healthz", a.healthHandler)
-
-	handler := middleware.Logger(mux)
+	a := &App{
+		db:        database,
+		templates: newTemplates(),
+		login:     service.NewLoginService(userRepo, credRepo),
+	}
 
 	a.server = &http.Server{
 		Addr:         cfg.ServerConfig.Addr,
-		Handler:      handler,
+		Handler:      a.routes(),
 		ReadTimeout:  cfg.ServerConfig.ReadTimeout,
 		WriteTimeout: cfg.ServerConfig.WriteTimeout,
 		IdleTimeout:  cfg.ServerConfig.IdleTimeout,
 	}
 
 	return a
+}
+
+func (a *App) routes() http.Handler {
+	mux := http.NewServeMux()
+
+	staticFS, _ := fs.Sub(staticFiles, "static")
+	fileServer := http.FileServer(http.FS(staticFS))
+
+	mux.HandleFunc("GET /healthz", a.healthHandler)
+	mux.HandleFunc("GET /login", a.loginPageHandler)
+	mux.HandleFunc("POST /auth/login", a.loginHandler)
+	mux.HandleFunc("POST /auth/register", a.registerHandler)
+	mux.Handle("GET /static/", http.StripPrefix("/static/", fileServer))
+
+	return middleware.Logger(mux)
 }
 
 func (a *App) Run(ctx context.Context) error {
@@ -56,9 +85,6 @@ func (a *App) Run(ctx context.Context) error {
 		if err := a.server.Shutdown(shutdownCtx); err != nil {
 			return err
 		}
-		if a.db != nil {
-			return a.db.Close()
-		}
-		return nil
+		return a.db.Close()
 	}
 }
