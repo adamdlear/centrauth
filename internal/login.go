@@ -8,9 +8,8 @@ import (
 )
 
 type loginPageData struct {
-	Title     string
-	CSRFToken string
-	Error     string
+	Title string
+	Error string
 }
 
 func (a *App) loginPageHandler(w http.ResponseWriter, r *http.Request) {

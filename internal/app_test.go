@@ -54,3 +54,31 @@ func TestLoginPageRenders(t *testing.T) {
 		}
 	}
 }
+
+func TestRoutesRejectCrossSitePost(t *testing.T) {
+	app := newTestApp()
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/register", nil)
+	req.Header.Set("Sec-Fetch-Site", "cross-site")
+	rec := httptest.NewRecorder()
+
+	app.routes().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("got status %d, want %d", rec.Code, http.StatusForbidden)
+	}
+}
+
+func TestRoutesAllowSameOriginPost(t *testing.T) {
+	app := newTestApp()
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/register", nil)
+	req.Header.Set("Sec-Fetch-Site", "same-origin")
+	rec := httptest.NewRecorder()
+
+	app.routes().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("got status %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+}

@@ -12,7 +12,6 @@
   </div>
 
   <form id="signin" action="/auth/login" method="post" class="auth-form is-active">
-    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
     <div class="field">
       <label for="signin-email">Email</label>
       <input id="signin-email" type="email" name="email" autocomplete="email" required>
@@ -25,7 +24,6 @@
   </form>
 
   <form id="signup" action="/auth/register" method="post" class="auth-form">
-    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
     <div class="field">
       <label for="signup-email">Email</label>
       <input id="signup-email" type="email" name="email" autocomplete="email" required>

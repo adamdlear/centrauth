@@ -61,7 +61,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /auth/register", a.registerHandler)
 	mux.Handle("GET /static/", http.StripPrefix("/static/", fileServer))
 
-	return middleware.Logger(mux)
+	return middleware.Logger(middleware.CSRF(mux))
 }
 
 func (a *App) Run(ctx context.Context) error {
