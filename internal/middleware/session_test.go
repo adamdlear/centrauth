@@ -56,6 +56,20 @@ func (f *fakeSessionRepo) RevokeAllForUser(_ context.Context, userID int64) erro
 	return nil
 }
 
+func (f *fakeSessionRepo) DeleteInactive(_ context.Context) (int, error) {
+	kept := make([]db.Session, 0, len(f.sessions))
+	deleted := 0
+	for _, s := range f.sessions {
+		if s.ExpiresAt.Before(time.Now()) || s.RevokedAt != nil {
+			deleted++
+			continue
+		}
+		kept = append(kept, s)
+	}
+	f.sessions = kept
+	return deleted, nil
+}
+
 type fakeUserRepo struct {
 	byID map[int64]db.User
 }

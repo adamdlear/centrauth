@@ -14,6 +14,7 @@ type SessionRepository interface {
 	GetByTokenHash(ctx context.Context, tokenHash []byte) (db.Session, error)
 	Revoke(ctx context.Context, id int64) error
 	RevokeAllForUser(ctx context.Context, userID int64) error
+	DeleteInactive(ctx context.Context) (int, error)
 }
 
 type gormSessionRepo struct {
@@ -54,4 +55,8 @@ func (r *gormSessionRepo) RevokeAllForUser(ctx context.Context, userID int64) er
 		Where("revoked_at IS NULL").
 		Update(ctx, "revoked_at", time.Now())
 	return err
+}
+
+func (r *gormSessionRepo) DeleteInactive(ctx context.Context) (int, error) {
+	return gorm.G[db.Session](r.db).Where("expires_at < ? OR revoked_at IS NOT NULL", time.Now()).Delete(ctx)
 }

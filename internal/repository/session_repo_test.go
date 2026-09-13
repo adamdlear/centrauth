@@ -82,6 +82,50 @@ func TestSessionRepo_Revoke(t *testing.T) {
 	}
 }
 
+func TestSessionRepo_DeleteInactive(t *testing.T) {
+	tx := newTestTx(t)
+	user := seedUser(t, tx, db.User{Subject: "session-repo-delete-subject", Email: "session-repo-delete@example.com"})
+	future := time.Now().Add(time.Hour).Truncate(time.Microsecond)
+	past := time.Now().Add(-time.Hour).Truncate(time.Microsecond)
+	revokedAt := time.Now().Add(-time.Minute).Truncate(time.Microsecond)
+
+	seedSession(t, tx, db.Session{TokenHash: []byte("session-repo-delete-active"), UserID: user.ID, ExpiresAt: future})
+	seedSession(t, tx, db.Session{TokenHash: []byte("session-repo-delete-expired"), UserID: user.ID, ExpiresAt: past})
+	seedSession(t, tx, db.Session{TokenHash: []byte("session-repo-delete-revoked"), UserID: user.ID, ExpiresAt: future, RevokedAt: &revokedAt})
+	seedSession(t, tx, db.Session{TokenHash: []byte("session-repo-delete-revoked-expired"), UserID: user.ID, ExpiresAt: past, RevokedAt: &revokedAt})
+	repo := NewGormSessionRepo(tx)
+
+	deleted, err := repo.DeleteInactive(context.Background())
+	if err != nil {
+		t.Fatalf("DeleteInactive() error = %v", err)
+	}
+	if deleted != 3 {
+		t.Errorf("DeleteInactive() deleted %d sessions, want 3", deleted)
+	}
+
+	tests := []struct {
+		name      string
+		tokenHash []byte
+		wantErr   error
+	}{
+		{"active session kept", []byte("session-repo-delete-active"), nil},
+		{"expired session deleted", []byte("session-repo-delete-expired"), ErrNotFound},
+		{"revoked session deleted", []byte("session-repo-delete-revoked"), ErrNotFound},
+		{"revoked and expired session deleted", []byte("session-repo-delete-revoked-expired"), ErrNotFound},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			session, err := repo.GetByTokenHash(context.Background(), tt.tokenHash)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("GetByTokenHash(%q) after DeleteInactive() error = %v, want %v", tt.tokenHash, err, tt.wantErr)
+			}
+			if err == nil && session.RevokedAt != nil {
+				t.Errorf("surviving session %q has RevokedAt set", tt.tokenHash)
+			}
+		})
+	}
+}
+
 func TestSessionRepo_RevokeAllForUser(t *testing.T) {
 	tx := newTestTx(t)
 	userA := seedUser(t, tx, db.User{Subject: "session-repo-user-a", Email: "session-repo-a@example.com"})

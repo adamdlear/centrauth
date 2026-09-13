@@ -5,7 +5,9 @@ import (
 	"embed"
 	"errors"
 	"io/fs"
+	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/adamdlear/centrauth/internal/db"
@@ -16,6 +18,7 @@ import (
 )
 
 type App struct {
+	logger    *slog.Logger
 	server    *http.Server
 	db        *db.DB
 	templates *templates
@@ -37,6 +40,7 @@ func NewApp(cfg AppConfig, database *db.DB) *App {
 	sessionRepo := repository.NewGormSessionRepo(database.Client)
 
 	a := &App{
+		logger:    slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
 		db:        database,
 		templates: newTemplates(),
 		login:     service.NewLoginService(userRepo, credRepo),
@@ -80,6 +84,23 @@ func (a *App) routes() http.Handler {
 
 func (a *App) Run(ctx context.Context) error {
 	errChan := make(chan error, 1)
+
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				count, err := a.sessions.DeleteInactive(ctx)
+				if err != nil {
+					a.logger.Error("failed to delete expired sessions", "error", err)
+				}
+				a.logger.Debug("deleted expired sessions", "count", count)
+			}
+		}
+	}()
 
 	go func() {
 		errChan <- a.server.ListenAndServe()

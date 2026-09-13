@@ -103,3 +103,7 @@ func (m *Manager) ClearCookie(w http.ResponseWriter) {
 		MaxAge:   -1,
 	})
 }
+
+func (m *Manager) DeleteInactive(ctx context.Context) (int, error) {
+	return m.sessions.DeleteInactive(ctx)
+}
