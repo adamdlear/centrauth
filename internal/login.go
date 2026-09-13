@@ -21,7 +21,7 @@ func (a *App) loginHandler(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	pwd := r.FormValue("password")
 
-	_, err := a.login.VerifyUserWithEmailAndPassword(ctx, email, pwd)
+	user, err := a.login.VerifyUserWithEmailAndPassword(ctx, email, pwd)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidCredentials) {
 			a.renderLogin(w, loginPageData{Title: "Sign In", Error: "Invalid email or password"})
@@ -31,7 +31,14 @@ func (a *App) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
+	token, err := a.sessions.Create(ctx, user.ID)
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	a.sessions.SetCookie(w, token)
+
+	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 }
 
 func (a *App) registerHandler(w http.ResponseWriter, r *http.Request) {

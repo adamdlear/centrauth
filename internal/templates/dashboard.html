@@ -1,0 +1,11 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<div class="auth-card">
+  <h1 class="auth-title">Centrauth</h1>
+  <p>Signed in as {{.Email}}</p>
+  <form action="/auth/logout" method="post" class="auth-form is-active">
+    <button type="submit">Sign Out</button>
+  </form>
+</div>
+{{end}}

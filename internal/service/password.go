@@ -65,7 +65,7 @@ func VerifyPassword(password string, hash string) (bool, error) {
 	}
 
 	var version int
-	if _, err := fmt.Sscanf(parts[2], "v=%d", version); err != nil {
+	if _, err := fmt.Sscanf(parts[2], "v=%d", &version); err != nil {
 		return false, err
 	}
 	if version != argon2.Version {
@@ -73,7 +73,7 @@ func VerifyPassword(password string, hash string) (bool, error) {
 	}
 
 	params := &PasswordHashParams{}
-	if _, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", params.Memory, params.Iterations, params.Parallelism); err != nil {
+	if _, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &params.Memory, &params.Iterations, &params.Parallelism); err != nil {
 		return false, err
 	}
 

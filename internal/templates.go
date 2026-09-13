@@ -10,7 +10,8 @@ import (
 var templateFiles embed.FS
 
 type templates struct {
-	login *template.Template
+	login     *template.Template
+	dashboard *template.Template
 }
 
 func newTemplates() *templates {
@@ -20,6 +21,7 @@ func newTemplates() *templates {
 	}
 
 	login := template.Must(template.New("login.html").ParseFS(tmplFS, "base.html", "login.html"))
+	dashboard := template.Must(template.New("dashboard.html").ParseFS(tmplFS, "base.html", "dashboard.html"))
 
-	return &templates{login: login}
+	return &templates{login: login, dashboard: dashboard}
 }

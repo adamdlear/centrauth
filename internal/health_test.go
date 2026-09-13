@@ -8,7 +8,7 @@ import (
 )
 
 func TestHealthHandler(t *testing.T) {
-	app := newTestApp()
+	app, _, _, _ := newTestApp()
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rr := httptest.NewRecorder()

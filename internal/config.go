@@ -2,11 +2,13 @@ package internal
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/adamdlear/centrauth/internal/db"
+	"github.com/adamdlear/centrauth/internal/session"
 )
 
 type ServerConfig struct {
@@ -18,8 +20,9 @@ type ServerConfig struct {
 }
 
 type AppConfig struct {
-	ServerConfig ServerConfig
-	DBConfig     db.DBConfig
+	ServerConfig  ServerConfig
+	DBConfig      db.DBConfig
+	SessionConfig session.Config
 }
 
 func LoadConfig() (AppConfig, error) {
@@ -31,6 +34,24 @@ func LoadConfig() (AppConfig, error) {
 	issuerURL := os.Getenv("ISSUER_URL")
 	if issuerURL == "" {
 		issuerURL = "http://localhost:8080"
+	}
+
+	parsedIssuer, err := url.Parse(issuerURL)
+	if err != nil {
+		return AppConfig{}, fmt.Errorf("invalid ISSUER_URL: %w", err)
+	}
+
+	cookieName := os.Getenv("SESSION_COOKIE_NAME")
+	if cookieName == "" {
+		cookieName = "centrauth_session"
+	}
+
+	sessionTTL := 24 * time.Hour
+	if raw := os.Getenv("SESSION_TTL"); raw != "" {
+		sessionTTL, err = time.ParseDuration(raw)
+		if err != nil {
+			return AppConfig{}, fmt.Errorf("invalid SESSION_TTL: %w", err)
+		}
 	}
 
 	dbPort, err := strconv.Atoi(os.Getenv("DB_PORT"))
@@ -52,6 +73,11 @@ func LoadConfig() (AppConfig, error) {
 			Password: os.Getenv("DB_PASSWORD"),
 			DBName:   os.Getenv("DB_DATABASE"),
 			Port:     dbPort,
+		},
+		SessionConfig: session.Config{
+			CookieName: cookieName,
+			TTL:        sessionTTL,
+			Secure:     parsedIssuer.Scheme == "https",
 		},
 	}, nil
 }
