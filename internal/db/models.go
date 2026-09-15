@@ -40,13 +40,21 @@ type Session struct {
 func (Session) TableName() string { return "sessions" }
 
 type OAuthClient struct {
-	ID               int64          `gorm:"primaryKey;autoIncrement"`
-	ClientID         string         `gorm:"column:client_id;not null;uniqueIndex"`
-	ClientSecretHash []byte         `gorm:"column:client_secret_hash"`
-	ClientType       string         `gorm:"column:client_type;not null"`
-	RedirectURIs     pq.StringArray `gorm:"column:redirect_uris;type:text[];not null;default:'{}'"`
-	CreatedAt        time.Time      `gorm:"not null"`
-	UpdatedAt        time.Time      `gorm:"not null"`
+	ID                      int64          `gorm:"primaryKey;autoIncrement"`
+	ClientID                string         `gorm:"column:client_id;not null;uniqueIndex"`
+	ClientSecretHash        []byte         `gorm:"column:client_secret_hash"`
+	ClientType              string         `gorm:"column:client_type;not null"`
+	Name                    string         `gorm:"column:name;not null"`
+	Description             string         `gorm:"column:description"`
+	TokenEndpointAuthMethod string         `gorm:"column:token_endpoint_auth_method;not null;default:none"`
+	RedirectURIs            pq.StringArray `gorm:"column:redirect_uris;type:text[];not null;default:'{}'"`
+	PostLogoutRedirectURIs  pq.StringArray `gorm:"column:post_logout_redirect_uris;type:text[];not null;default:'{}'"`
+	AllowedOrigins          pq.StringArray `gorm:"column:allowed_origins;type:text[];not null;default:'{}'"`
+	AllowedScopes           pq.StringArray `gorm:"column:allowed_scopes;type:text[];not null;default:'{}'"`
+	Environment             string         `gorm:"column:environment;not null;default:local"`
+	FirstParty              bool           `gorm:"column:first_party;not null;default:true"`
+	CreatedAt               time.Time      `gorm:"not null"`
+	UpdatedAt               time.Time      `gorm:"not null"`
 }
 
 func (OAuthClient) TableName() string { return "oauth_clients" }
