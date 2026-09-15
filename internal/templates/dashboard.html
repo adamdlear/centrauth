@@ -7,5 +7,12 @@
   <form action="/auth/logout" method="post" class="auth-form is-active">
     <button type="submit">Sign Out</button>
   </form>
+  <div>
+    <ul>
+      {{range .Clients}}
+      <li>{{.Name}} ({{.ClientID}})</li>
+      {{end}}
+    </ul>
+  </div>
 </div>
 {{end}}

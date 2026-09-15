@@ -76,3 +76,155 @@ func TestClientRepo_Create(t *testing.T) {
 		t.Error("Create() with duplicate client_id: want error, got nil")
 	}
 }
+
+func TestClientRepo_Update(t *testing.T) {
+	tx := newTestTx(t)
+	repo := NewGormClientRepo(tx)
+
+	seeded := seedClient(t, tx, db.OAuthClient{
+		ClientID:                "client-repo-update",
+		ClientType:              "confidential",
+		Name:                    "Original Name",
+		Description:             "original description",
+		TokenEndpointAuthMethod: "client_secret_basic",
+		ClientSecretHash:        []byte("secret-hash"),
+		RedirectURIs:            pq.StringArray{"https://example.com/callback"},
+		AllowedScopes:           pq.StringArray{"openid", "profile"},
+		Environment:             "production",
+		FirstParty:              true,
+	})
+
+	updated := seeded
+	updated.Name = "Updated Name"
+	updated.Description = ""
+	updated.ClientSecretHash = nil
+	updated.RedirectURIs = pq.StringArray{"https://new.example.com/callback"}
+	updated.AllowedScopes = pq.StringArray{"openid"}
+	updated.Environment = "staging"
+	updated.FirstParty = false
+
+	if _, err := repo.Update(context.Background(), &updated); err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
+
+	fetched, err := repo.GetByClientID(context.Background(), "client-repo-update")
+	if err != nil {
+		t.Fatalf("GetByClientID() after Update() error = %v", err)
+	}
+	if fetched.Name != "Updated Name" {
+		t.Errorf("Name = %q, want %q", fetched.Name, "Updated Name")
+	}
+	if fetched.Description != "" {
+		t.Errorf("Description = %q, want cleared to empty string", fetched.Description)
+	}
+	if fetched.ClientSecretHash != nil {
+		t.Error("ClientSecretHash not cleared, want nil")
+	}
+	if fetched.FirstParty {
+		t.Error("FirstParty = true, want false")
+	}
+	if fetched.Environment != "staging" {
+		t.Errorf("Environment = %q, want %q", fetched.Environment, "staging")
+	}
+	if len(fetched.RedirectURIs) != 1 || fetched.RedirectURIs[0] != "https://new.example.com/callback" {
+		t.Errorf("RedirectURIs = %v, want [https://new.example.com/callback]", fetched.RedirectURIs)
+	}
+	if len(fetched.AllowedScopes) != 1 || fetched.AllowedScopes[0] != "openid" {
+		t.Errorf("AllowedScopes = %v, want [openid]", fetched.AllowedScopes)
+	}
+	if fetched.ID != seeded.ID {
+		t.Errorf("ID = %d, want unchanged %d", fetched.ID, seeded.ID)
+	}
+
+	missing := db.OAuthClient{
+		ID:           seeded.ID + 1_000_000,
+		ClientID:     "client-repo-update-missing",
+		ClientType:   "public",
+		RedirectURIs: pq.StringArray{},
+	}
+	if _, err := repo.Update(context.Background(), &missing); !errors.Is(err, ErrNotFound) {
+		t.Errorf("Update() with nonexistent ID error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestClientRepo_List(t *testing.T) {
+	tx := newTestTx(t)
+	repo := NewGormClientRepo(tx)
+
+	seedClient(t, tx, db.OAuthClient{
+		ClientID:     "client-repo-list-a",
+		ClientType:   "public",
+		Name:         "List A",
+		Environment:  "local",
+		RedirectURIs: pq.StringArray{},
+	})
+	seedClient(t, tx, db.OAuthClient{
+		ClientID:     "client-repo-list-b",
+		ClientType:   "confidential",
+		Name:         "List B",
+		Environment:  "production",
+		RedirectURIs: pq.StringArray{},
+	})
+
+	clients, err := repo.List(context.Background())
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+
+	found := map[string]bool{}
+	for _, c := range clients {
+		found[c.ClientID] = true
+	}
+	for _, want := range []string{"client-repo-list-a", "client-repo-list-b"} {
+		if !found[want] {
+			t.Errorf("List() missing seeded client %q", want)
+		}
+	}
+}
+
+func TestClientRepo_ListByEnvironment(t *testing.T) {
+	tx := newTestTx(t)
+	repo := NewGormClientRepo(tx)
+
+	seedClient(t, tx, db.OAuthClient{
+		ClientID:     "client-repo-env-local",
+		ClientType:   "public",
+		Name:         "Env Local",
+		Environment:  "local",
+		RedirectURIs: pq.StringArray{},
+	})
+	seedClient(t, tx, db.OAuthClient{
+		ClientID:     "client-repo-env-production",
+		ClientType:   "confidential",
+		Name:         "Env Production",
+		Environment:  "production",
+		RedirectURIs: pq.StringArray{},
+	})
+
+	clients, err := repo.ListByEnvironment(context.Background(), "local")
+	if err != nil {
+		t.Fatalf("ListByEnvironment(local) error = %v", err)
+	}
+
+	foundLocal := false
+	for _, c := range clients {
+		if c.Environment != "local" {
+			t.Errorf("ListByEnvironment(local) returned client %q with environment %q", c.ClientID, c.Environment)
+		}
+		if c.ClientID == "client-repo-env-local" {
+			foundLocal = true
+		}
+	}
+	if !foundLocal {
+		t.Error("ListByEnvironment(local) missing seeded client client-repo-env-local")
+	}
+
+	if clients, err = repo.ListByEnvironment(context.Background(), "staging"); err != nil {
+		t.Fatalf("ListByEnvironment(staging) error = %v", err)
+	}
+	for _, c := range clients {
+		if c.ClientID == "client-repo-env-local" || c.ClientID == "client-repo-env-production" {
+			t.Errorf("ListByEnvironment(staging) returned client %q from another environment", c.ClientID)
+		}
+	}
+}

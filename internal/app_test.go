@@ -52,6 +52,47 @@ func (f *fakeUserRepo) CreateWithCredential(_ context.Context, u *db.User, c *db
 	return *u, nil
 }
 
+type fakeClientRepo struct {
+	clients []db.OAuthClient
+}
+
+func (f *fakeClientRepo) GetByClientID(_ context.Context, clientID string) (db.OAuthClient, error) {
+	for _, c := range f.clients {
+		if c.ClientID == clientID {
+			return c, nil
+		}
+	}
+	return db.OAuthClient{}, repository.ErrNotFound
+}
+
+func (f *fakeClientRepo) Create(_ context.Context, c *db.OAuthClient) (db.OAuthClient, error) {
+	return *c, nil
+}
+
+func (f *fakeClientRepo) Update(_ context.Context, c *db.OAuthClient) (db.OAuthClient, error) {
+	for i := range f.clients {
+		if f.clients[i].ID == c.ID {
+			f.clients[i] = *c
+			return *c, nil
+		}
+	}
+	return db.OAuthClient{}, repository.ErrNotFound
+}
+
+func (f *fakeClientRepo) List(_ context.Context) ([]db.OAuthClient, error) {
+	return f.clients, nil
+}
+
+func (f *fakeClientRepo) ListByEnvironment(_ context.Context, environment string) ([]db.OAuthClient, error) {
+	var clients []db.OAuthClient
+	for _, c := range f.clients {
+		if c.Environment == environment {
+			clients = append(clients, c)
+		}
+	}
+	return clients, nil
+}
+
 type fakeCredentialRepo struct {
 	creds map[int64]db.UserCredential
 }
@@ -128,6 +169,7 @@ func newTestApp() (*App, *fakeUserRepo, *fakeCredentialRepo, *fakeSessionRepo) {
 	users := &fakeUserRepo{byID: map[int64]db.User{}, byEmail: map[string]db.User{}}
 	creds := &fakeCredentialRepo{creds: map[int64]db.UserCredential{}}
 	sessions := &fakeSessionRepo{}
+	clients := &fakeClientRepo{}
 
 	app := &App{
 		logger:    logger,
@@ -135,6 +177,7 @@ func newTestApp() (*App, *fakeUserRepo, *fakeCredentialRepo, *fakeSessionRepo) {
 		login:     service.NewLoginService(logger, users, creds),
 		sessions:  session.NewManager(sessions, session.Config{CookieName: "centrauth_session", TTL: time.Hour}),
 		users:     users,
+		clients:   clients,
 	}
 
 	return app, users, creds, sessions

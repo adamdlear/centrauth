@@ -25,6 +25,7 @@ type App struct {
 	login     *service.LoginService
 	sessions  *session.Manager
 	users     repository.UserRepository
+	clients   repository.ClientRepository
 }
 
 //go:embed static/*
@@ -40,6 +41,7 @@ func NewApp(cfg AppConfig, database *db.DB) *App {
 	userRepo := repository.NewGormUserRepo(database.Client)
 	credRepo := repository.NewGormCredentialRepo(database.Client)
 	sessionRepo := repository.NewGormSessionRepo(database.Client)
+	clientRepo := repository.NewGormClientRepo(database.Client)
 
 	a := &App{
 		logger:    slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
@@ -48,6 +50,7 @@ func NewApp(cfg AppConfig, database *db.DB) *App {
 		login:     service.NewLoginService(logger, userRepo, credRepo),
 		sessions:  session.NewManager(sessionRepo, cfg.SessionConfig),
 		users:     userRepo,
+		clients:   clientRepo,
 	}
 
 	a.server = &http.Server{
