@@ -89,6 +89,11 @@ func (f *fakeUserRepo) Create(_ context.Context, u *db.User) (db.User, error) {
 	return *u, nil
 }
 
+func (f *fakeUserRepo) CreateWithCredential(_ context.Context, u *db.User, c *db.UserCredential) (db.User, error) {
+	c.UserID = u.ID
+	return *u, nil
+}
+
 func TestSessionMiddleware(t *testing.T) {
 	sessions := &fakeSessionRepo{}
 	users := &fakeUserRepo{byID: map[int64]db.User{

@@ -35,6 +35,8 @@ func NewApp(cfg AppConfig, database *db.DB) *App {
 		panic("centrauth: NewApp requires a non-nil database")
 	}
 
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
 	userRepo := repository.NewGormUserRepo(database.Client)
 	credRepo := repository.NewGormCredentialRepo(database.Client)
 	sessionRepo := repository.NewGormSessionRepo(database.Client)
@@ -43,7 +45,7 @@ func NewApp(cfg AppConfig, database *db.DB) *App {
 		logger:    slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
 		db:        database,
 		templates: newTemplates(),
-		login:     service.NewLoginService(userRepo, credRepo),
+		login:     service.NewLoginService(logger, userRepo, credRepo),
 		sessions:  session.NewManager(sessionRepo, cfg.SessionConfig),
 		users:     userRepo,
 	}

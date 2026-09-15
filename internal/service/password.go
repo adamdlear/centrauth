@@ -24,6 +24,14 @@ var (
 	ErrIncompatibleVersion = errors.New("incompatible version of argon2")
 )
 
+var DefaultPasswordHashParams = PasswordHashParams{
+	Memory:      64 * 1024, // 64 MB
+	Iterations:  3,
+	KeyLength:   32,
+	SaltLength:  16,
+	Parallelism: 2,
+}
+
 func HashPassword(password string, params *PasswordHashParams) (string, error) {
 	salt := make([]byte, params.SaltLength)
 	if _, err := rand.Read(salt); err != nil {

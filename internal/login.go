@@ -42,7 +42,32 @@ func (a *App) loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) registerHandler(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
+	ctx := r.Context()
+	email := r.FormValue("email")
+	pwd := r.FormValue("password")
+	conf := r.FormValue("password_confirm")
+
+	if pwd != conf {
+		a.renderLogin(w, loginPageData{Title: "Sign In", Error: "Passwords must match"})
+		return
+	}
+
+	user, err := a.login.RegisterUser(ctx, email, pwd)
+	if err != nil {
+		a.logger.Error("failed to register user", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	token, err := a.sessions.Create(ctx, user.ID)
+	if err != nil {
+		a.logger.Error("failed to create session", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	a.sessions.SetCookie(w, token)
+
+	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 }
 
 func (a *App) renderLogin(w http.ResponseWriter, data loginPageData) {

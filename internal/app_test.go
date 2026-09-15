@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -21,6 +22,7 @@ import (
 type fakeUserRepo struct {
 	byID    map[int64]db.User
 	byEmail map[string]db.User
+	nextID  int64
 }
 
 func (f *fakeUserRepo) GetByEmail(_ context.Context, email string) (db.User, error) {
@@ -38,6 +40,15 @@ func (f *fakeUserRepo) GetByID(_ context.Context, id int64) (db.User, error) {
 }
 
 func (f *fakeUserRepo) Create(_ context.Context, u *db.User) (db.User, error) {
+	return *u, nil
+}
+
+func (f *fakeUserRepo) CreateWithCredential(_ context.Context, u *db.User, c *db.UserCredential) (db.User, error) {
+	f.nextID++
+	u.ID = f.nextID
+	c.UserID = u.ID
+	f.byID[u.ID] = *u
+	f.byEmail[u.Email] = *u
 	return *u, nil
 }
 
@@ -113,13 +124,15 @@ func (f *fakeSessionRepo) DeleteInactive(_ context.Context) (int, error) {
 }
 
 func newTestApp() (*App, *fakeUserRepo, *fakeCredentialRepo, *fakeSessionRepo) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	users := &fakeUserRepo{byID: map[int64]db.User{}, byEmail: map[string]db.User{}}
 	creds := &fakeCredentialRepo{creds: map[int64]db.UserCredential{}}
 	sessions := &fakeSessionRepo{}
 
 	app := &App{
+		logger:    logger,
 		templates: newTemplates(),
-		login:     service.NewLoginService(users, creds),
+		login:     service.NewLoginService(logger, users, creds),
 		sessions:  session.NewManager(sessions, session.Config{CookieName: "centrauth_session", TTL: time.Hour}),
 		users:     users,
 	}
