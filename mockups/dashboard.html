@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#FFFFFF">
+  <title>Applications · centrauth</title>
+  <link rel="stylesheet" href="mockup.css">
+</head>
+<body>
+  <!-- Mockup states:
+       dashboard.html              registry with 3 sample apps
+       dashboard.html?state=empty  no applications yet
+       dashboard.html?state=new    onboarding panel open at step 1
+       "Add application" runs a working 3-step onboarding; Finish adds the row. -->
+  <header class="topbar">
+    <span class="wordmark"><span class="mark"></span>centrauth</span>
+    <div class="topbar-id">
+      <span class="who">you@homelab.dev</span>
+      <form action="/auth/logout" method="post">
+        <button type="submit" class="btn btn-ghost btn-sm">Sign out</button>
+      </form>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="pagehead">
+      <h1>Applications</h1>
+      <span class="count" id="appcount">3 apps</span>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-primary" id="addapp" aria-expanded="false" aria-controls="onboarding">
+        <span class="plus" aria-hidden="true"></span>Add application
+      </button>
+    </div>
+
+    <!-- ————— onboarding: new application ————— -->
+    <div class="panel onboarding" id="onboarding" hidden>
+      <div class="panel-head">
+        <h2>New application</h2>
+        <span class="panel-count">register an app, its first client, and grab the integration</span>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-ghost btn-sm" data-close>Cancel</button>
+      </div>
+
+      <div class="stepper" aria-hidden="true">
+        <div class="step is-current" data-step="1"><span class="step-num">1</span><span>Application</span></div>
+        <div class="step-line"></div>
+        <div class="step" data-step="2"><span class="step-num">2</span><span>First client</span></div>
+        <div class="step-line"></div>
+        <div class="step" data-step="3"><span class="step-num">3</span><span>Integrate</span></div>
+      </div>
+
+      <form id="onboardform">
+        <section class="ostep" data-step="1">
+          <p class="form-error" id="nameerr" hidden>App name is required</p>
+          <div class="field">
+            <label for="appname">App name</label>
+            <input id="appname" type="text" name="name" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="appdesc">Description</label>
+            <textarea id="appdesc" name="description" rows="2" placeholder="What this app is for"></textarea>
+          </div>
+          <div class="field check">
+            <input id="appfirst" type="checkbox" name="first_party">
+            <label for="appfirst">First-party application — trusted, and consent is not re-asked for granted scopes</label>
+          </div>
+          <div class="field">
+            <label for="scopeinput">Allowed APIs and scopes</label>
+            <div class="chips" id="scopeedit">
+              <input id="scopeinput" class="chip-input" list="scopelist"
+                     placeholder="type a scope and press enter" autocomplete="off">
+              <datalist id="scopelist">
+                <option value="openid"></option>
+                <option value="profile"></option>
+                <option value="email"></option>
+                <option value="offline_access"></option>
+                <option value="tasks:read"></option>
+                <option value="tasks:write"></option>
+              </datalist>
+            </div>
+            <p class="hint">The ceiling this app and all of its clients may request. Space, comma, or enter adds a scope.</p>
+          </div>
+        </section>
+
+        <section class="ostep" data-step="2" hidden>
+          <div class="field">
+            <label for="clientplatform">Platform</label>
+            <select id="clientplatform" name="platform">
+              <option value="web">Web app</option>
+              <option value="spa">Single-page app</option>
+              <option value="mobile">Mobile app</option>
+              <option value="cli">CLI</option>
+              <option value="service">Service</option>
+            </select>
+            <p class="hint">Web and service clients are confidential and get a generated secret. SPA, mobile, and CLI clients are public and use PKCE.</p>
+          </div>
+          <div class="field">
+            <label for="clientenv">Environment</label>
+            <select id="clientenv" name="environment">
+              <option value="local">Local</option>
+              <option value="staging">Staging</option>
+              <option value="production">Production</option>
+            </select>
+            <p class="hint">Separate clients per environment keep a local registration from using production redirect behavior.</p>
+          </div>
+          <div class="field">
+            <label for="clientredirects">Redirect URIs</label>
+            <textarea id="clientredirects" class="input-mono" rows="3"
+                      placeholder="https://anvil.dev/auth/callback"></textarea>
+            <p class="hint">Exact matching, one per line. Localhost URIs are fine for a local client.</p>
+          </div>
+          <div class="field">
+            <label for="clientpostlogout">Post-logout redirect URIs</label>
+            <textarea id="clientpostlogout" class="input-mono" rows="2" placeholder="optional"></textarea>
+          </div>
+        </section>
+
+        <section class="ostep" data-step="3" hidden>
+          <dl class="summary">
+            <dt>Application</dt><dd id="s-name">Anvil</dd>
+            <dt>Platform</dt><dd id="s-platform">Web app · confidential</dd>
+            <dt>Environment</dt><dd id="s-env">Local</dd>
+            <dt>Scopes</dt><dd class="apphead-chips" id="s-scopes"></dd>
+            <dt>Redirect URIs</dt><dd><pre class="well" id="s-redirects"></pre></dd>
+          </dl>
+          <div class="integrate">
+            <div>
+              <div class="well-head">
+                <span class="well-label">Issuer</span>
+                <button type="button" class="btn btn-ghost btn-xs" data-copy="w-issuer">copy</button>
+              </div>
+              <pre class="well" id="w-issuer">https://auth.homelab.dev</pre>
+            </div>
+            <div>
+              <div class="well-head">
+                <span class="well-label">Client ID</span>
+                <button type="button" class="btn btn-ghost btn-xs" data-copy="w-clientid">copy</button>
+              </div>
+              <pre class="well" id="w-clientid">—</pre>
+            </div>
+            <div>
+              <div class="well-head">
+                <span class="well-label">Next.js adapter</span>
+                <button type="button" class="btn btn-ghost btn-xs" data-copy="w-snippet">copy</button>
+              </div>
+              <pre class="well" id="w-snippet"></pre>
+            </div>
+          </div>
+        </section>
+
+        <div class="oactions">
+          <button type="button" class="btn btn-ghost" id="oback" hidden>Back</button>
+          <button type="button" class="btn btn-primary" id="onext">Next</button>
+          <button type="button" class="btn btn-primary" id="ofinish" hidden>Finish</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- ————— registry ————— -->
+    <div class="panel" id="ledgerpanel">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th scope="col">Application</th>
+            <th scope="col">Scopes</th>
+            <th scope="col" class="num">Clients</th>
+            <th scope="col">Created</th>
+          </tr>
+        </thead>
+        <tbody id="ledgerbody">
+          <tr>
+            <td>
+              <span class="cell-name"><a href="app.html">Anvil</a></span>
+              <p class="cell-desc">Self-hosted Git service</p>
+            </td>
+            <td>
+              <span class="chip">openid</span> <span class="chip">profile</span> <span class="chip">email</span>
+            </td>
+            <td class="num"><span class="count-n">3</span><span class="count-w">clients</span></td>
+            <td class="mono-muted">2026-09-03</td>
+          </tr>
+          <tr>
+            <td>
+              <span class="cell-name"><a href="app.html">Nightdrive</a></span>
+              <p class="cell-desc">Build dashboard for the homelab cluster</p>
+            </td>
+            <td>
+              <span class="chip">openid</span> <span class="chip">profile</span>
+            </td>
+            <td class="num"><span class="count-n">1</span><span class="count-w">client</span></td>
+            <td class="mono-muted">2026-08-21</td>
+          </tr>
+          <tr>
+            <td>
+              <span class="cell-name"><a href="app.html">Cardex</a></span>
+              <p class="cell-desc">Contacts and membership records</p>
+            </td>
+            <td>
+              <span class="chip">email</span>
+            </td>
+            <td class="num"><span class="is-zero">0</span><span class="count-w">clients</span></td>
+            <td class="mono-muted">2026-08-12</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="empty" id="empty" hidden>
+      <p class="empty-title">No applications yet.</p>
+      <p class="empty-body">Register your first application to start issuing sign-in credentials for it.</p>
+    </div>
+  </main>
+
+  <script>
+    /* Mockup-only behavior (not part of the design port). */
+    (function () {
+      var q = location.search;
+      if (q.indexOf("state=empty") !== -1) {
+        document.getElementById("ledgerpanel").hidden = true;
+        document.getElementById("empty").hidden = false;
+      }
+
+      var addBtn = document.getElementById("addapp");
+      var panel = document.getElementById("onboarding");
+
+      addBtn.addEventListener("click", function () {
+        openPanel(panel.hidden);
+      });
+
+      panel.addEventListener("click", function (e) {
+        if (e.target.closest("[data-close]")) openPanel(false);
+      });
+
+      panel.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") openPanel(false);
+      });
+
+      function openPanel(open) {
+        panel.hidden = !open;
+        addBtn.setAttribute("aria-expanded", String(open));
+        if (open) go(1);
+      }
+
+      /* — stepper — */
+      var steps = panel.querySelectorAll(".ostep");
+      var stepperItems = panel.querySelectorAll(".step");
+      var back = document.getElementById("oback");
+      var next = document.getElementById("onext");
+      var finish = document.getElementById("ofinish");
+      var nameErr = document.getElementById("nameerr");
+      var current = 1;
+
+      function go(n) {
+        current = n;
+        Array.prototype.forEach.call(steps, function (s) {
+          s.hidden = +s.getAttribute("data-step") !== n;
+        });
+        Array.prototype.forEach.call(stepperItems, function (it) {
+          var k = +it.getAttribute("data-step");
+          it.classList.toggle("is-current", k === n);
+          it.classList.toggle("is-done", k < n);
+        });
+        back.hidden = n === 1;
+        next.hidden = n === 3;
+        finish.hidden = n !== 3;
+      }
+
+      next.addEventListener("click", function () {
+        if (current === 1) {
+          var name = document.getElementById("appname").value.trim();
+          if (!name) {
+            nameErr.hidden = false;
+            document.getElementById("appname").focus();
+            return;
+          }
+          nameErr.hidden = true;
+          go(2);
+        } else if (current === 2) {
+          fillSummary();
+          go(3);
+        }
+      });
+
+      back.addEventListener("click", function () { go(current - 1); });
+
+      var clientId = "";
+
+      function fillSummary() {
+        var name = document.getElementById("appname").value.trim();
+        var platform = document.getElementById("clientplatform");
+        var platformText = platform.options[platform.selectedIndex].text;
+        var env = document.getElementById("clientenv");
+        var envText = env.options[env.selectedIndex].text;
+        var redirects = document.getElementById("clientredirects").value.trim();
+        var scopes = getChips();
+
+        var slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "app";
+        clientId = slug + "-" + platform.value + "-" + Math.random().toString(36).slice(2, 7);
+
+        document.getElementById("s-name").textContent = name;
+        document.getElementById("s-platform").textContent = platformText + (
+          platform.value === "web" || platform.value === "service" ? " · confidential" : " · public"
+        );
+        document.getElementById("s-env").textContent = envText;
+        document.getElementById("s-redirects").textContent = redirects || "—";
+
+        var scopeWrap = document.getElementById("s-scopes");
+        scopeWrap.textContent = "";
+        if (scopes.length) {
+          scopes.forEach(function (s) {
+            var c = document.createElement("span");
+            c.className = "chip";
+            c.textContent = s;
+            scopeWrap.appendChild(c);
+          });
+        } else {
+          scopeWrap.textContent = "none";
+          scopeWrap.className = "apphead-chips mono-muted";
+        }
+
+        document.getElementById("w-clientid").textContent = clientId;
+
+        var firstRedirect = redirects ? redirects.split("\n")[0].trim() : "https://" + slug + ".dev/auth/callback";
+        document.getElementById("w-snippet").textContent =
+          'import { CentrauthProvider } from "@centrauth/next";\n' +
+          "\n" +
+          "export default CentrauthProvider({\n" +
+          '  issuer: "https://auth.homelab.dev",\n' +
+          '  clientId: "' + clientId + '",\n' +
+          '  redirectUri: "' + firstRedirect + '",\n' +
+          "});";
+      }
+
+      /* — finish: add the row — */
+      finish.addEventListener("click", function () {
+        var name = document.getElementById("appname").value.trim();
+        var desc = document.getElementById("appdesc").value.trim();
+        var scopes = getChips();
+
+        var tr = document.createElement("tr");
+        tr.className = "is-new";
+
+        var tdName = document.createElement("td");
+        var a = document.createElement("a");
+        a.href = "app.html";
+        a.className = "cell-name";
+        a.textContent = name;
+        tdName.appendChild(a);
+        if (desc) {
+          var p = document.createElement("p");
+          p.className = "cell-desc";
+          p.textContent = desc;
+          tdName.appendChild(p);
+        }
+        tr.appendChild(tdName);
+
+        var tdScopes = document.createElement("td");
+        if (scopes.length) {
+          scopes.forEach(function (s) {
+            var c = document.createElement("span");
+            c.className = "chip";
+            c.textContent = s;
+            tdScopes.appendChild(c);
+            tdScopes.appendChild(document.createTextNode(" "));
+          });
+        } else {
+          tdScopes.className = "mono-muted";
+          tdScopes.textContent = "none";
+        }
+        tr.appendChild(tdScopes);
+
+        var tdCount = document.createElement("td");
+        tdCount.className = "num";
+        tdCount.innerHTML = '<span class="count-n">1</span><span class="count-w">client</span>';
+        tr.appendChild(tdCount);
+
+        var tdCreated = document.createElement("td");
+        tdCreated.className = "mono-muted";
+        tdCreated.textContent = new Date().toISOString().slice(0, 10);
+        tr.appendChild(tdCreated);
+
+        document.getElementById("empty").hidden = true;
+        document.getElementById("ledgerpanel").hidden = false;
+        var body = document.getElementById("ledgerbody");
+        body.insertBefore(tr, body.firstChild);
+
+        var rows = body.querySelectorAll("tr").length;
+        document.getElementById("appcount").textContent = rows + (rows === 1 ? " app" : " apps");
+
+        document.getElementById("onboardform").reset();
+        clearChips();
+        openPanel(false);
+        tr.scrollIntoView({ block: "nearest" });
+      });
+
+      /* — scope chip editor — */
+      var editor = document.getElementById("scopeedit");
+      var input = document.getElementById("scopeinput");
+
+      function getChips() {
+        return Array.prototype.map.call(editor.querySelectorAll(".chip-edit"), function (c) {
+          return c.getAttribute("data-value");
+        });
+      }
+
+      function clearChips() {
+        Array.prototype.forEach.call(editor.querySelectorAll(".chip-edit"), function (c) {
+          c.remove();
+        });
+      }
+
+      function addChip(value) {
+        value = value.trim().toLowerCase().replace(/[, ]+$/, "");
+        if (!value) return;
+        var existing = getChips();
+        if (existing.indexOf(value) !== -1) return;
+        var chip = document.createElement("span");
+        chip.className = "chip-edit";
+        chip.setAttribute("data-value", value);
+        chip.textContent = value;
+        var x = document.createElement("button");
+        x.type = "button";
+        x.className = "chip-x";
+        x.setAttribute("aria-label", "Remove " + value);
+        x.textContent = "×";
+        x.addEventListener("click", function () { chip.remove(); });
+        chip.appendChild(x);
+        editor.insertBefore(chip, input);
+      }
+
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === "," || e.key === " ") {
+          if (input.value.trim()) {
+            e.preventDefault();
+            addChip(input.value);
+            input.value = "";
+          }
+        } else if (e.key === "Backspace" && !input.value) {
+          var chips = editor.querySelectorAll(".chip-edit");
+          if (chips.length) chips[chips.length - 1].remove();
+        }
+      });
+
+      input.addEventListener("blur", function () {
+        if (input.value.trim()) {
+          addChip(input.value);
+          input.value = "";
+        }
+      });
+
+      editor.addEventListener("click", function () {
+        input.focus();
+      });
+
+      /* — copy buttons — */
+      function copyText(t) {
+        if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(t);
+        var ta = document.createElement("textarea");
+        ta.value = t;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+        return Promise.resolve();
+      }
+
+      Array.prototype.forEach.call(document.querySelectorAll("[data-copy]"), function (btn) {
+        btn.addEventListener("click", function () {
+          var text = document.getElementById(btn.getAttribute("data-copy")).textContent;
+          copyText(text).then(function () {
+            btn.classList.add("is-copied");
+            btn.textContent = "copied";
+            setTimeout(function () {
+              btn.classList.remove("is-copied");
+              btn.textContent = "copy";
+            }, 1200);
+          });
+        });
+      });
+
+      if (q.indexOf("state=new") !== -1) openPanel(true);
+    })();
+  </script>
+</body>
+</html>

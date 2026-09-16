@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#FFFFFF">
+  <title>Anvil · centrauth</title>
+  <link rel="stylesheet" href="mockup.css">
+</head>
+<body>
+  <!-- Mockup: application detail. Clients expand to show redirect URIs
+       and actions. "New client" and "Add provider" open working panels. -->
+  <header class="topbar">
+    <span class="wordmark"><span class="mark"></span>centrauth</span>
+    <div class="topbar-id">
+      <span class="who">you@homelab.dev</span>
+      <form action="/auth/logout" method="post">
+        <button type="submit" class="btn btn-ghost btn-sm">Sign out</button>
+      </form>
+    </div>
+  </header>
+
+  <main class="page">
+    <p class="crumbs"><a href="dashboard.html">applications</a> / anvil</p>
+
+    <div class="apphead">
+      <div class="apphead-main">
+        <h1>Anvil</h1>
+        <p class="apphead-desc">Self-hosted Git service</p>
+        <div class="apphead-chips">
+          <span class="chip chip-solid">first-party</span>
+          <span class="chip">openid</span>
+          <span class="chip">profile</span>
+          <span class="chip">email</span>
+        </div>
+      </div>
+      <div class="apphead-meta">
+        <div class="mcell"><span class="mcell-label">ID</span><span class="mcell-value">3</span></div>
+        <div class="mcell"><span class="mcell-label">Created</span><span class="mcell-value">2026-09-03</span></div>
+        <div class="mcell"><span class="mcell-label">Clients</span><span class="mcell-value">3</span></div>
+      </div>
+    </div>
+
+    <div class="layout">
+      <div class="maincol">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Clients</h2>
+            <span class="panel-count">3</span>
+            <span class="spacer"></span>
+            <button type="button" class="btn btn-ghost btn-sm" id="newclientbtn" aria-expanded="false" aria-controls="newclient">
+              <span class="plus" aria-hidden="true"></span>New client
+            </button>
+          </div>
+
+          <div class="panel-form" id="newclient" hidden>
+            <form>
+              <div class="field">
+                <label for="nc-platform">Platform</label>
+                <select id="nc-platform">
+                  <option value="web">Web app</option>
+                  <option value="spa">Single-page app</option>
+                  <option value="mobile">Mobile app</option>
+                  <option value="cli">CLI</option>
+                  <option value="service">Service</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="nc-env">Environment</label>
+                <select id="nc-env">
+                  <option value="local">Local</option>
+                  <option value="staging">Staging</option>
+                  <option value="production">Production</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="nc-auth">Token endpoint authentication</label>
+                <select id="nc-auth">
+                  <option value="client_secret_basic">client_secret_basic</option>
+                  <option value="client_secret_post">client_secret_post</option>
+                  <option value="private_key_jwt">private_key_jwt</option>
+                  <option value="none">none (public client)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="nc-redirects">Redirect URIs</label>
+                <textarea id="nc-redirects" class="input-mono" rows="3" placeholder="https://anvil.dev/auth/callback"></textarea>
+                <p class="hint">Exact matching, one per line.</p>
+              </div>
+              <div class="formactions">
+                <button type="button" class="btn btn-ghost btn-sm" data-close>Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm">Register client</button>
+              </div>
+            </form>
+          </div>
+
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th scope="col"><span class="visually-hidden">Expand</span></th>
+                <th scope="col">Client ID</th>
+                <th scope="col">Platform</th>
+                <th scope="col">Environment</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="clientrow is-open" data-detail="d-web">
+                <td><button type="button" class="expander" aria-expanded="true" aria-controls="d-web" aria-label="Toggle anvil-web details"></button></td>
+                <td class="mono">anvil-web</td>
+                <td><span class="chip">web</span></td>
+                <td><span class="chip chip-env-production">production</span></td>
+              </tr>
+              <tr class="detailrow" id="d-web">
+                <td colspan="4">
+                  <div class="clientdetail">
+                    <div class="clientmeta">
+                      <div><span class="cm-label">Type</span><span class="cm-value">confidential</span></div>
+                      <div><span class="cm-label">Auth method</span><span class="cm-value">client_secret_basic</span></div>
+                      <div><span class="cm-label">Created</span><span class="cm-value">2026-09-03</span></div>
+                    </div>
+                    <div>
+                      <div class="well-head"><span class="well-label">Redirect URIs</span></div>
+                      <pre class="well">https://anvil.dev/auth/callback
+https://anvil.dev/settings/callback</pre>
+                    </div>
+                    <div>
+                      <div class="well-head"><span class="well-label">Post-logout redirect URIs</span></div>
+                      <pre class="well">https://anvil.dev</pre>
+                    </div>
+                    <div>
+                      <div class="well-head"><span class="well-label">Allowed origins</span></div>
+                      <pre class="well">https://anvil.dev</pre>
+                    </div>
+                    <div class="actions">
+                      <button type="button" class="btn btn-ghost btn-sm">Rotate secret</button>
+                      <button type="button" class="btn btn-danger btn-sm">Revoke client</button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              <tr class="clientrow" data-detail="d-cli">
+                <td><button type="button" class="expander" aria-expanded="false" aria-controls="d-cli" aria-label="Toggle anvil-cli details"></button></td>
+                <td class="mono">anvil-cli</td>
+                <td><span class="chip">cli</span></td>
+                <td><span class="chip chip-env-local">local</span></td>
+              </tr>
+              <tr class="detailrow" id="d-cli" hidden>
+                <td colspan="4">
+                  <div class="clientdetail">
+                    <div class="clientmeta">
+                      <div><span class="cm-label">Type</span><span class="cm-value">public · PKCE</span></div>
+                      <div><span class="cm-label">Auth method</span><span class="cm-value">none</span></div>
+                      <div><span class="cm-label">Created</span><span class="cm-value">2026-09-03</span></div>
+                    </div>
+                    <div>
+                      <div class="well-head"><span class="well-label">Redirect URIs</span></div>
+                      <pre class="well">http://localhost:9174/callback</pre>
+                    </div>
+                    <div class="actions">
+                      <button type="button" class="btn btn-danger btn-sm">Revoke client</button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              <tr class="clientrow" data-detail="d-mirror">
+                <td><button type="button" class="expander" aria-expanded="false" aria-controls="d-mirror" aria-label="Toggle anvil-mirror details"></button></td>
+                <td class="mono">anvil-mirror</td>
+                <td><span class="chip">service</span></td>
+                <td><span class="chip">staging</span></td>
+              </tr>
+              <tr class="detailrow" id="d-mirror" hidden>
+                <td colspan="4">
+                  <div class="clientdetail">
+                    <div class="clientmeta">
+                      <div><span class="cm-label">Type</span><span class="cm-value">confidential</span></div>
+                      <div><span class="cm-label">Auth method</span><span class="cm-value">private_key_jwt</span></div>
+                      <div><span class="cm-label">Created</span><span class="cm-value">2026-09-05</span></div>
+                    </div>
+                    <div>
+                      <div class="well-head"><span class="well-label">Redirect URIs</span></div>
+                      <pre class="well">https://anvil.staging.internal/mirror/callback</pre>
+                    </div>
+                    <div class="actions">
+                      <button type="button" class="btn btn-ghost btn-sm">Rotate secret</button>
+                      <button type="button" class="btn btn-danger btn-sm">Revoke client</button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Integrate</h2>
+            <span class="panel-count">@centrauth/next · @centrauth/client</span>
+          </div>
+          <div class="panel-body integrate">
+            <div>
+              <div class="well-head">
+                <span class="well-label">Issuer</span>
+                <button type="button" class="btn btn-ghost btn-xs" data-copy="a-issuer">copy</button>
+              </div>
+              <pre class="well" id="a-issuer">https://auth.homelab.dev</pre>
+            </div>
+            <div>
+              <div class="well-head">
+                <span class="well-label">Client ID · anvil-web</span>
+                <button type="button" class="btn btn-ghost btn-xs" data-copy="a-clientid">copy</button>
+              </div>
+              <pre class="well" id="a-clientid">anvil-web</pre>
+            </div>
+            <div>
+              <div class="well-head">
+                <span class="well-label">Next.js adapter</span>
+                <button type="button" class="btn btn-ghost btn-xs" data-copy="a-snippet">copy</button>
+              </div>
+              <pre class="well" id="a-snippet">import { CentrauthProvider } from "@centrauth/next";
+
+export default CentrauthProvider({
+  issuer: "https://auth.homelab.dev",
+  clientId: "anvil-web",
+  redirectUri: "https://anvil.dev/auth/callback",
+});</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="rail">
+        <div class="panel">
+          <div class="panel-head"><h2>Environments</h2></div>
+          <div class="rowitem"><span class="name">production</span><span class="numnote">1 client</span></div>
+          <div class="rowitem"><span class="name">staging</span><span class="numnote">1 client</span></div>
+          <div class="rowitem"><span class="name">local</span><span class="numnote">1 client</span></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Providers</h2>
+            <span class="panel-count">sign-in methods for this app</span>
+            <span class="spacer"></span>
+            <button type="button" class="btn btn-ghost btn-sm" id="addprovbtn" aria-expanded="false" aria-controls="addprov">Add</button>
+          </div>
+          <div class="rowitem"><span class="dot dot-on"></span><span class="name">Google</span><span class="note">configured · credentials encrypted</span></div>
+          <div class="rowitem"><span class="dot dot-off"></span><span class="name">GitHub</span><span class="note">not configured</span></div>
+          <div class="panel-form" id="addprov" hidden>
+            <form>
+              <div class="field">
+                <label for="prov-select">Provider</label>
+                <select id="prov-select">
+                  <option>Google</option>
+                  <option>GitHub</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="prov-id">Provider client ID</label>
+                <input id="prov-id" type="text" class="input-mono" autocomplete="off">
+              </div>
+              <div class="field">
+                <label for="prov-secret">Provider client secret</label>
+                <input id="prov-secret" type="password" class="input-mono" autocomplete="off">
+                <p class="hint">Stored encrypted inside centrauth. The app never sees these credentials.</p>
+              </div>
+              <div class="field">
+                <span class="well-label">Upstream redirect URI</span>
+                <pre class="well">https://auth.homelab.dev/callback/google</pre>
+                <p class="hint">Register this exact URI with the provider.</p>
+              </div>
+              <div class="formactions">
+                <button type="button" class="btn btn-ghost btn-sm" data-close>Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm">Save provider</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>Danger zone</h2></div>
+          <div class="dangerblock">
+            <div class="name">Delete application</div>
+            <p>Removes the app, its clients, and revokes every grant issued to them.</p>
+            <button type="button" class="btn btn-danger btn-sm">Delete application</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    /* Mockup-only behavior (not part of the design port). */
+    (function () {
+      Array.prototype.forEach.call(document.querySelectorAll(".clientrow"), function (row) {
+        var btn = row.querySelector(".expander");
+        btn.addEventListener("click", function () {
+          var open = row.classList.toggle("is-open");
+          document.getElementById(row.getAttribute("data-detail")).hidden = !open;
+          btn.setAttribute("aria-expanded", String(open));
+        });
+      });
+
+      function togglePanel(btnId, panelId) {
+        var btn = document.getElementById(btnId);
+        var panel = document.getElementById(panelId);
+        btn.addEventListener("click", function () {
+          panel.hidden = !panel.hidden;
+          btn.setAttribute("aria-expanded", String(!panel.hidden));
+        });
+        var cancel = panel.querySelector("[data-close]");
+        if (cancel) cancel.addEventListener("click", function () {
+          panel.hidden = true;
+          btn.setAttribute("aria-expanded", "false");
+        });
+      }
+
+      togglePanel("newclientbtn", "newclient");
+      togglePanel("addprovbtn", "addprov");
+
+      function copyText(t) {
+        if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(t);
+        var ta = document.createElement("textarea");
+        ta.value = t;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+        return Promise.resolve();
+      }
+
+      Array.prototype.forEach.call(document.querySelectorAll("[data-copy]"), function (btn) {
+        btn.addEventListener("click", function () {
+          var text = document.getElementById(btn.getAttribute("data-copy")).textContent;
+          copyText(text).then(function () {
+            btn.classList.add("is-copied");
+            btn.textContent = "copied";
+            setTimeout(function () {
+              btn.classList.remove("is-copied");
+              btn.textContent = "copy";
+            }, 1200);
+          });
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
