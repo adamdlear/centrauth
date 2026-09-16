@@ -9,8 +9,8 @@
   </form>
   <div>
     <ul>
-      {{range .Clients}}
-      <li>{{.Name}} ({{.ClientID}})</li>
+      {{range .Apps}}
+      <li>{{.Name}} ({{.ClientCount}} clients)</li>
       {{end}}
     </ul>
   </div>

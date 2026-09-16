@@ -93,6 +93,58 @@ func (f *fakeClientRepo) ListByEnvironment(_ context.Context, environment string
 	return clients, nil
 }
 
+func (f *fakeClientRepo) ListByApplicationID(_ context.Context, applicationID int64) ([]db.OAuthClient, error) {
+	var clients []db.OAuthClient
+	for _, c := range f.clients {
+		if c.ApplicationID == applicationID {
+			clients = append(clients, c)
+		}
+	}
+	return clients, nil
+}
+
+type fakeApplicationRepo struct {
+	apps       []db.Application
+	clientRepo *fakeClientRepo
+}
+
+func (f *fakeApplicationRepo) Create(_ context.Context, a *db.Application) (db.Application, error) {
+	return *a, nil
+}
+
+func (f *fakeApplicationRepo) GetByID(_ context.Context, id int64) (db.Application, error) {
+	for _, a := range f.apps {
+		if a.ID == id {
+			return a, nil
+		}
+	}
+	return db.Application{}, repository.ErrNotFound
+}
+
+func (f *fakeApplicationRepo) List(_ context.Context) ([]db.Application, error) {
+	return f.apps, nil
+}
+
+func (f *fakeApplicationRepo) Update(_ context.Context, a *db.Application) (db.Application, error) {
+	for i := range f.apps {
+		if f.apps[i].ID == a.ID {
+			f.apps[i] = *a
+			return *a, nil
+		}
+	}
+	return db.Application{}, repository.ErrNotFound
+}
+
+func (f *fakeApplicationRepo) GetWithClients(_ context.Context, id int64) (db.Application, []db.OAuthClient, error) {
+	for _, a := range f.apps {
+		if a.ID == id {
+			clients, err := f.clientRepo.ListByApplicationID(context.Background(), id)
+			return a, clients, err
+		}
+	}
+	return db.Application{}, nil, repository.ErrNotFound
+}
+
 type fakeCredentialRepo struct {
 	creds map[int64]db.UserCredential
 }
@@ -164,27 +216,29 @@ func (f *fakeSessionRepo) DeleteInactive(_ context.Context) (int, error) {
 	return deleted, nil
 }
 
-func newTestApp() (*App, *fakeUserRepo, *fakeCredentialRepo, *fakeSessionRepo) {
+func newTestApp() (*App, *fakeUserRepo, *fakeCredentialRepo, *fakeSessionRepo, *fakeApplicationRepo, *fakeClientRepo) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	users := &fakeUserRepo{byID: map[int64]db.User{}, byEmail: map[string]db.User{}}
 	creds := &fakeCredentialRepo{creds: map[int64]db.UserCredential{}}
 	sessions := &fakeSessionRepo{}
 	clients := &fakeClientRepo{}
+	applications := &fakeApplicationRepo{clientRepo: clients}
 
 	app := &App{
-		logger:    logger,
-		templates: newTemplates(),
-		login:     service.NewLoginService(logger, users, creds),
-		sessions:  session.NewManager(sessions, session.Config{CookieName: "centrauth_session", TTL: time.Hour}),
-		users:     users,
-		clients:   clients,
+		logger:       logger,
+		templates:    newTemplates(),
+		login:        service.NewLoginService(logger, users, creds),
+		sessions:     session.NewManager(sessions, session.Config{CookieName: "centrauth_session", TTL: time.Hour}),
+		users:        users,
+		clients:      clients,
+		applications: applications,
 	}
 
-	return app, users, creds, sessions
+	return app, users, creds, sessions, applications, clients
 }
 
 func TestHealthRoute(t *testing.T) {
-	app, _, _, _ := newTestApp()
+	app, _, _, _, _, _ := newTestApp()
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
@@ -197,7 +251,7 @@ func TestHealthRoute(t *testing.T) {
 }
 
 func TestLoginPageRenders(t *testing.T) {
-	app, _, _, _ := newTestApp()
+	app, _, _, _, _, _ := newTestApp()
 
 	req := httptest.NewRequest(http.MethodGet, "/login", nil)
 	rec := httptest.NewRecorder()
@@ -227,7 +281,7 @@ func TestLoginPageRenders(t *testing.T) {
 }
 
 func TestRoutesRejectCrossSitePost(t *testing.T) {
-	app, _, _, _ := newTestApp()
+	app, _, _, _, _, _ := newTestApp()
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/register", nil)
 	req.Header.Set("Sec-Fetch-Site", "cross-site")
@@ -241,7 +295,7 @@ func TestRoutesRejectCrossSitePost(t *testing.T) {
 }
 
 func TestRoutesAllowSameOriginPost(t *testing.T) {
-	app, _, _, _ := newTestApp()
+	app, _, _, _, _, _ := newTestApp()
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/register", nil)
 	req.Header.Set("Sec-Fetch-Site", "same-origin")
@@ -255,7 +309,7 @@ func TestRoutesAllowSameOriginPost(t *testing.T) {
 }
 
 func TestRootRedirectsToDashboard(t *testing.T) {
-	app, _, _, _ := newTestApp()
+	app, _, _, _, _, _ := newTestApp()
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
@@ -271,7 +325,7 @@ func TestRootRedirectsToDashboard(t *testing.T) {
 }
 
 func TestDashboardRedirectsAnonymousToLogin(t *testing.T) {
-	app, _, _, _ := newTestApp()
+	app, _, _, _, _, _ := newTestApp()
 
 	req := httptest.NewRequest(http.MethodGet, "/dashboard", nil)
 	rec := httptest.NewRecorder()
@@ -287,10 +341,16 @@ func TestDashboardRedirectsAnonymousToLogin(t *testing.T) {
 }
 
 func TestDashboardRendersForAuthenticatedUser(t *testing.T) {
-	app, users, _, _ := newTestApp()
+	app, users, _, _, applications, clients := newTestApp()
 
 	user := db.User{ID: 7, Subject: "dashboard-subject", Email: "dash@example.com"}
 	users.byID[7] = user
+
+	applications.apps = []db.Application{{ID: 1, Name: "Todo App"}}
+	clients.clients = []db.OAuthClient{
+		{ID: 1, ApplicationID: 1, ClientID: "todo-web", ClientType: "confidential"},
+		{ID: 2, ApplicationID: 1, ClientID: "todo-mobile", ClientType: "public"},
+	}
 
 	token, err := app.sessions.Create(context.Background(), user.ID)
 	if err != nil {
@@ -311,7 +371,12 @@ func TestDashboardRendersForAuthenticatedUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading body: %v", err)
 	}
-	for _, want := range []string{"dash@example.com", `action="/auth/logout"`} {
+	for _, want := range []string{
+		"dash@example.com",
+		`action="/auth/logout"`,
+		"Todo App",
+		"(2 clients)",
+	} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("response body missing %q", want)
 		}
@@ -319,7 +384,7 @@ func TestDashboardRendersForAuthenticatedUser(t *testing.T) {
 }
 
 func TestLoginCreatesSessionAndCookie(t *testing.T) {
-	app, users, creds, sessions := newTestApp()
+	app, users, creds, sessions, _, _ := newTestApp()
 
 	hash, err := service.HashPassword("correct-password", &service.PasswordHashParams{
 		Memory:      64,
@@ -384,7 +449,7 @@ func TestLoginCreatesSessionAndCookie(t *testing.T) {
 }
 
 func TestLoginRejectsWrongPasswordWithoutSession(t *testing.T) {
-	app, users, creds, sessions := newTestApp()
+	app, users, creds, sessions, _, _ := newTestApp()
 
 	hash, err := service.HashPassword("correct-password", &service.PasswordHashParams{
 		Memory:      64,
@@ -424,7 +489,7 @@ func TestLoginRejectsWrongPasswordWithoutSession(t *testing.T) {
 }
 
 func TestLogoutRevokesSessionAndClearsCookie(t *testing.T) {
-	app, users, _, _ := newTestApp()
+	app, users, _, _, _, _ := newTestApp()
 
 	user := db.User{ID: 7, Subject: "logout-subject", Email: "logout@example.com"}
 	users.byID[7] = user

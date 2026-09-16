@@ -63,7 +63,7 @@ func TestIsRedirectURIAllowed_EmptyList(t *testing.T) {
 }
 
 func TestIsScopeAllowed(t *testing.T) {
-	client := db.OAuthClient{
+	app := db.Application{
 		AllowedScopes: pq.StringArray{"openid", "profile", "email"},
 	}
 
@@ -80,7 +80,7 @@ func TestIsScopeAllowed(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := IsScopeAllowed(client, tt.scope); got != tt.want {
+			if got := IsScopeAllowed(app, tt.scope); got != tt.want {
 				t.Errorf("IsScopeAllowed(%q) = %v, want %v", tt.scope, got, tt.want)
 			}
 		})
@@ -88,15 +88,23 @@ func TestIsScopeAllowed(t *testing.T) {
 }
 
 func TestIsScopeAllowed_EmptyList(t *testing.T) {
-	client := db.OAuthClient{}
+	app := db.Application{}
 
-	if IsScopeAllowed(client, "openid") {
+	if IsScopeAllowed(app, "openid") {
 		t.Error("IsScopeAllowed() with no allowed scopes = true, want false")
 	}
 }
 
 func TestValidateRequestedScopes(t *testing.T) {
 	client := db.OAuthClient{
+		ID:            1,
+		ApplicationID: 7,
+		ClientID:      "todo-web",
+		ClientType:    "confidential",
+	}
+	app := db.Application{
+		ID:            client.ApplicationID,
+		Name:          "Todo",
 		AllowedScopes: pq.StringArray{"openid", "profile", "email"},
 	}
 
@@ -115,7 +123,7 @@ func TestValidateRequestedScopes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ValidateRequestedScopes(client, tt.scopeParam); got != tt.want {
+			if got := ValidateRequestedScopes(app, tt.scopeParam); got != tt.want {
 				t.Errorf("ValidateRequestedScopes(%q) = %v, want %v", tt.scopeParam, got, tt.want)
 			}
 		})

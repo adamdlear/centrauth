@@ -18,14 +18,15 @@ import (
 )
 
 type App struct {
-	logger    *slog.Logger
-	server    *http.Server
-	db        *db.DB
-	templates *templates
-	login     *service.LoginService
-	sessions  *session.Manager
-	users     repository.UserRepository
-	clients   repository.ClientRepository
+	logger       *slog.Logger
+	server       *http.Server
+	db           *db.DB
+	templates    *templates
+	login        *service.LoginService
+	sessions     *session.Manager
+	users        repository.UserRepository
+	clients      repository.ClientRepository
+	applications repository.ApplicationRepository
 }
 
 //go:embed static/*
@@ -42,15 +43,17 @@ func NewApp(cfg AppConfig, database *db.DB) *App {
 	credRepo := repository.NewGormCredentialRepo(database.Client)
 	sessionRepo := repository.NewGormSessionRepo(database.Client)
 	clientRepo := repository.NewGormClientRepo(database.Client)
+	applicationRepo := repository.NewGormApplicationRepo(database.Client)
 
 	a := &App{
-		logger:    slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
-		db:        database,
-		templates: newTemplates(),
-		login:     service.NewLoginService(logger, userRepo, credRepo),
-		sessions:  session.NewManager(sessionRepo, cfg.SessionConfig),
-		users:     userRepo,
-		clients:   clientRepo,
+		logger:       slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
+		db:           database,
+		templates:    newTemplates(),
+		login:        service.NewLoginService(logger, userRepo, credRepo),
+		sessions:     session.NewManager(sessionRepo, cfg.SessionConfig),
+		users:        userRepo,
+		clients:      clientRepo,
+		applications: applicationRepo,
 	}
 
 	a.server = &http.Server{
