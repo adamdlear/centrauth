@@ -3,13 +3,14 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{.Title}}</title>
+    <meta name="color-scheme" content="light">
+    <title>{{.Title}} · centrauth</title>
+    <link rel="preload" href="/static/fonts/plexsans-var.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/static/fonts/plexmono-600.woff2" as="font" type="font/woff2" crossorigin>
     <link href="/static/css/style.css" rel="stylesheet">
   </head>
   <body>
-    <main class="auth">
-      {{template "content" .}}
-    </main>
-    <script src="/static/js/login.js"></script>
+    {{template "content" .}}
+    <script src="/static/js/login.js" defer></script>
   </body>
 </html>

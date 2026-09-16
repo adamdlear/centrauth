@@ -1,36 +1,38 @@
 {{template "base.html" .}}
 
 {{define "content"}}
-<div class="auth-card">
-  <h1 class="auth-title">Centrauth</h1>
-  <p>Signed in as {{.Email}}</p>
-  <form action="/auth/logout" method="post" class="auth-form is-active">
-    <button type="submit">Sign Out</button>
-  </form>
-  <div>
-    <ul>
-      {{range .Apps}}
-      <li>{{.Name}} ({{.ClientCount}} clients)</li>
-      {{end}}
-    </ul>
+<main class="page">
+  <div class="auth-card">
+    <h1 class="auth-title">Centrauth</h1>
+    <p>Signed in as {{.Email}}</p>
+    <form action="/auth/logout" method="post" class="auth-form is-active">
+      <button type="submit" class="btn btn-ghost btn-sm">Sign Out</button>
+    </form>
+    <div>
+      <ul>
+        {{range .Apps}}
+        <li>{{.Name}} ({{.ClientCount}} clients)</li>
+        {{end}}
+      </ul>
+    </div>
+
+    {{if .Error}}<div class="alert" role="alert">{{.Error}}</div>{{end}}
+
+    <form action="/apps" method="post" class="auth-form is-active">
+      <div class="field">
+        <label for="app-name">App Name</label>
+        <input id="app-name" type="text" name="name" required>
+      </div>
+      <div class="field">
+        <label for="app-description">Description</label>
+        <input id="app-description" type="text" name="description">
+      </div>
+      <div class="field">
+        <label for="app-scopes">Allowed Scopes</label>
+        <input id="app-scopes" type="text" name="allowed_scopes" placeholder="openid profile">
+      </div>
+      <button type="submit" class="btn btn-primary">Create App</button>
+    </form>
   </div>
-
-  {{if .Error}}<div class="alert" role="alert">{{.Error}}</div>{{end}}
-
-  <form action="/apps" method="post" class="auth-form is-active">
-    <div class="field">
-      <label for="app-name">App Name</label>
-      <input id="app-name" type="text" name="name" required>
-    </div>
-    <div class="field">
-      <label for="app-description">Description</label>
-      <input id="app-description" type="text" name="description">
-    </div>
-    <div class="field">
-      <label for="app-scopes">Allowed Scopes</label>
-      <input id="app-scopes" type="text" name="allowed_scopes" placeholder="openid profile">
-    </div>
-    <button type="submit">Create App</button>
-  </form>
-</div>
+</main>
 {{end}}
