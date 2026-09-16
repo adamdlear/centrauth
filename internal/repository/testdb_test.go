@@ -79,6 +79,14 @@ func seedSession(t *testing.T, tx *gorm.DB, s db.Session) db.Session {
 	return s
 }
 
+func seedApplication(t *testing.T, tx *gorm.DB, a db.Application) db.Application {
+	t.Helper()
+	if err := tx.Create(&a).Error; err != nil {
+		t.Fatalf("seeding application: %v", err)
+	}
+	return a
+}
+
 func seedClient(t *testing.T, tx *gorm.DB, c db.OAuthClient) db.OAuthClient {
 	t.Helper()
 	if err := tx.Create(&c).Error; err != nil {
