@@ -1,38 +1,106 @@
 {{template "base.html" .}}
 
 {{define "content"}}
-<main class="page">
-  <div class="auth-card">
-    <h1 class="auth-title">Centrauth</h1>
-    <p>Signed in as {{.Email}}</p>
-    <form action="/auth/logout" method="post" class="auth-form is-active">
-      <button type="submit" class="btn btn-ghost btn-sm">Sign Out</button>
-    </form>
-    <div>
-      <ul>
-        {{range .Apps}}
-        <li>{{.Name}} ({{.ClientCount}} clients)</li>
-        {{end}}
-      </ul>
-    </div>
-
-    {{if .Error}}<div class="alert" role="alert">{{.Error}}</div>{{end}}
-
-    <form action="/apps" method="post" class="auth-form is-active">
-      <div class="field">
-        <label for="app-name">App Name</label>
-        <input id="app-name" type="text" name="name" required>
-      </div>
-      <div class="field">
-        <label for="app-description">Description</label>
-        <input id="app-description" type="text" name="description">
-      </div>
-      <div class="field">
-        <label for="app-scopes">Allowed Scopes</label>
-        <input id="app-scopes" type="text" name="allowed_scopes" placeholder="openid profile">
-      </div>
-      <button type="submit" class="btn btn-primary">Create App</button>
+<header class="topbar">
+  <span class="wordmark"><span class="mark"></span>centrauth</span>
+  <div class="topbar-id">
+    <span class="who">{{.Email}}</span>
+    <form action="/auth/logout" method="post">
+      <button type="submit" class="btn btn-ghost btn-sm">Sign out</button>
     </form>
   </div>
+</header>
+
+<main class="page">
+  <div class="pagehead">
+    <h1>Applications</h1>
+    <span class="count">{{len .Apps}} {{if eq (len .Apps) 1}}app{{else}}apps{{end}}</span>
+    <span class="spacer"></span>
+    <button type="button" class="btn btn-primary" id="addapp" aria-controls="newapp"
+            aria-expanded="{{if or .Error (not .Apps)}}true{{else}}false{{end}}">
+      <span class="plus" aria-hidden="true"></span>Add application
+    </button>
+  </div>
+
+  <div class="panel newapp" id="newapp" {{if not (or .Error (not .Apps))}}hidden{{end}}>
+    <div class="panel-head">
+      <h2>New application</h2>
+      <span class="panel-count">the apps your services sign in through</span>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-ghost btn-sm" data-close>Cancel</button>
+    </div>
+    <form action="/apps" method="post" class="app-form">
+      {{if .Error}}<p class="form-error" role="alert">{{.Error}}</p>{{end}}
+
+      <div class="field">
+        <label for="app-name">App name</label>
+        <input id="app-name" type="text" name="name" required>
+      </div>
+
+      <div class="field">
+        <label for="app-description">Description</label>
+        <textarea id="app-description" name="description" rows="2" placeholder="What this app is for"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="scopeinput">Allowed APIs and scopes</label>
+        <div class="chips" id="scopeedit">
+          <input id="scopeinput" class="chip-input" name="allowed_scopes" list="scopelist"
+                 placeholder="openid profile email" autocomplete="off">
+        </div>
+        <datalist id="scopelist">
+          <option value="openid"></option>
+          <option value="profile"></option>
+          <option value="email"></option>
+          <option value="offline_access"></option>
+        </datalist>
+        <p class="hint">The ceiling this app and all of its clients may request. Type a scope and press enter.</p>
+      </div>
+
+      <div class="formactions">
+        <button type="submit" class="btn btn-primary">Create application</button>
+      </div>
+    </form>
+  </div>
+
+  {{if .Apps}}
+  <div class="panel">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th scope="col">Application</th>
+          <th scope="col">Scopes</th>
+          <th scope="col" class="num">Clients</th>
+          <th scope="col">Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Apps}}
+        <tr>
+          <td>
+            <span class="cell-name">{{.Name}}</span>
+            {{if .Description}}<p class="cell-desc">{{.Description}}</p>{{end}}
+          </td>
+          <td>
+            {{if .Scopes}}{{range .Scopes}}<span class="chip">{{.}}</span> {{end}}{{else}}<span class="mono-muted">none</span>{{end}}
+          </td>
+          <td class="num">
+            <span class="count-n{{if eq .ClientCount 0}} is-zero{{end}}">{{.ClientCount}}</span>
+            <span class="count-w">{{if eq .ClientCount 1}}client{{else}}clients{{end}}</span>
+          </td>
+          <td class="mono-muted">{{.Created}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <div class="empty">
+    <p class="empty-title">No applications yet.</p>
+    <p class="empty-body">Register your first application to start issuing sign-in credentials for it.</p>
+  </div>
+  {{end}}
 </main>
+
+<script src="/static/js/dashboard.js" defer></script>
 {{end}}

@@ -13,7 +13,10 @@ func (a *App) rootHandler(w http.ResponseWriter, r *http.Request) {
 
 type dashboardAppView struct {
 	Name        string
+	Description string
+	Scopes      []string
 	ClientCount int
+	Created     string
 }
 
 type dashboardPageData struct {
@@ -59,7 +62,17 @@ func (a *App) dashboardData(ctx context.Context) (dashboardPageData, error) {
 
 	views := make([]dashboardAppView, 0, len(apps))
 	for _, app := range apps {
-		views = append(views, dashboardAppView{Name: app.Name, ClientCount: clientCounts[app.ID]})
+		created := ""
+		if !app.CreatedAt.IsZero() {
+			created = app.CreatedAt.Format("2006-01-02")
+		}
+		views = append(views, dashboardAppView{
+			Name:        app.Name,
+			Description: app.Description,
+			Scopes:      []string(app.AllowedScopes),
+			ClientCount: clientCounts[app.ID],
+			Created:     created,
+		})
 	}
 
 	return dashboardPageData{Title: "Dashboard", Apps: views}, nil

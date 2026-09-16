@@ -379,8 +379,8 @@ func TestDashboardRendersForAuthenticatedUser(t *testing.T) {
 		"dash@example.com",
 		`action="/auth/logout"`,
 		"Todo App",
-		"(2 clients)",
-		`action="/apps" method="post" class="auth-form is-active"`,
+		`class="count-n">2<`,
+		`action="/apps" method="post" class="app-form"`,
 	} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("response body missing %q", want)
