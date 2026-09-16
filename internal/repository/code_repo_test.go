@@ -14,10 +14,12 @@ import (
 func seedCodePrereqs(t *testing.T, tx *gorm.DB) (db.User, db.OAuthClient) {
 	t.Helper()
 	user := seedUser(t, tx, db.User{Subject: "code-repo-test-subject", Email: "code-repo-test@example.com"})
+	app := seedApplication(t, tx, db.Application{Name: "Code Repo Test App"})
 	client := seedClient(t, tx, db.OAuthClient{
-		ClientID:     "code-repo-test-client",
-		ClientType:   "confidential",
-		RedirectURIs: pq.StringArray{"https://example.com/callback"},
+		ApplicationID: app.ID,
+		ClientID:      "code-repo-test-client",
+		ClientType:    "confidential",
+		RedirectURIs:  pq.StringArray{"https://example.com/callback"},
 	})
 	return user, client
 }

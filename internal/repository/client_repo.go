@@ -14,6 +14,7 @@ type ClientRepository interface {
 	Update(ctx context.Context, client *db.OAuthClient) (db.OAuthClient, error)
 	List(ctx context.Context) ([]db.OAuthClient, error)
 	ListByEnvironment(ctx context.Context, environment string) ([]db.OAuthClient, error)
+	ListByApplicationID(ctx context.Context, applicationID int64) ([]db.OAuthClient, error)
 }
 
 type gormClientRepo struct {
@@ -58,4 +59,8 @@ func (r *gormClientRepo) List(ctx context.Context) ([]db.OAuthClient, error) {
 
 func (r *gormClientRepo) ListByEnvironment(ctx context.Context, environment string) ([]db.OAuthClient, error) {
 	return gorm.G[db.OAuthClient](r.db).Where("environment = ?", environment).Find(ctx)
+}
+
+func (r *gormClientRepo) ListByApplicationID(ctx context.Context, applicationID int64) ([]db.OAuthClient, error) {
+	return gorm.G[db.OAuthClient](r.db).Where("application_id = ?", applicationID).Find(ctx)
 }
