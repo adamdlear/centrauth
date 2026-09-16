@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/adamdlear/centrauth/internal/middleware"
@@ -18,6 +19,7 @@ type dashboardAppView struct {
 type dashboardPageData struct {
 	Title string
 	Email string
+	Error string
 	Apps  []dashboardAppView
 }
 
@@ -30,15 +32,24 @@ func (a *App) dashboardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	apps, err := a.applications.List(ctx)
+	data, err := a.dashboardData(ctx)
 	if err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
+	data.Email = user.Email
+
+	a.renderDashboard(w, data)
+}
+
+func (a *App) dashboardData(ctx context.Context) (dashboardPageData, error) {
+	apps, err := a.applications.List(ctx)
+	if err != nil {
+		return dashboardPageData{}, err
+	}
 	clients, err := a.clients.List(ctx)
 	if err != nil {
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
+		return dashboardPageData{}, err
 	}
 
 	clientCounts := make(map[int64]int, len(clients))
@@ -51,7 +62,7 @@ func (a *App) dashboardHandler(w http.ResponseWriter, r *http.Request) {
 		views = append(views, dashboardAppView{Name: app.Name, ClientCount: clientCounts[app.ID]})
 	}
 
-	a.renderDashboard(w, dashboardPageData{Title: "Dashboard", Email: user.Email, Apps: views})
+	return dashboardPageData{Title: "Dashboard", Apps: views}, nil
 }
 
 func (a *App) renderDashboard(w http.ResponseWriter, data dashboardPageData) {

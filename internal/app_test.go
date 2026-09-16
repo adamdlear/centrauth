@@ -105,10 +105,14 @@ func (f *fakeClientRepo) ListByApplicationID(_ context.Context, applicationID in
 
 type fakeApplicationRepo struct {
 	apps       []db.Application
+	nextID     int64
 	clientRepo *fakeClientRepo
 }
 
 func (f *fakeApplicationRepo) Create(_ context.Context, a *db.Application) (db.Application, error) {
+	f.nextID++
+	a.ID = f.nextID
+	f.apps = append(f.apps, *a)
 	return *a, nil
 }
 
@@ -376,10 +380,115 @@ func TestDashboardRendersForAuthenticatedUser(t *testing.T) {
 		`action="/auth/logout"`,
 		"Todo App",
 		"(2 clients)",
+		`action="/apps" method="post" class="auth-form is-active"`,
 	} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("response body missing %q", want)
 		}
+	}
+}
+
+func TestCreateAppRoute(t *testing.T) {
+	app, users, _, _, applications, _ := newTestApp()
+
+	user := db.User{ID: 7, Subject: "create-app-subject", Email: "createapp@example.com"}
+	users.byID[7] = user
+
+	token, err := app.sessions.Create(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("creating session: %v", err)
+	}
+
+	form := url.Values{"name": {"Todo App"}, "description": {"A todo app"}, "allowed_scopes": {"openid profile"}}
+	req := httptest.NewRequest(http.MethodPost, "/apps", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Sec-Fetch-Site", "same-origin")
+	req.AddCookie(&http.Cookie{Name: "centrauth_session", Value: token})
+	rec := httptest.NewRecorder()
+
+	app.routes().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("got status %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if loc := rec.Header().Get("Location"); loc != "/dashboard" {
+		t.Errorf("Location = %q, want %q", loc, "/dashboard")
+	}
+
+	if len(applications.apps) != 1 {
+		t.Fatalf("stored %d apps, want 1", len(applications.apps))
+	}
+	created := applications.apps[0]
+	if created.Name != "Todo App" {
+		t.Errorf("Name = %q, want %q", created.Name, "Todo App")
+	}
+	if created.Description != "A todo app" {
+		t.Errorf("Description = %q, want %q", created.Description, "A todo app")
+	}
+	if !created.FirstParty {
+		t.Error("FirstParty = false, want true")
+	}
+	if len(created.AllowedScopes) != 2 || created.AllowedScopes[0] != "openid" || created.AllowedScopes[1] != "profile" {
+		t.Errorf("AllowedScopes = %v, want [openid profile]", created.AllowedScopes)
+	}
+}
+
+func TestCreateAppRequiresName(t *testing.T) {
+	app, users, _, _, applications, _ := newTestApp()
+
+	user := db.User{ID: 7, Subject: "create-app-empty-subject", Email: "createappempty@example.com"}
+	users.byID[7] = user
+
+	token, err := app.sessions.Create(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("creating session: %v", err)
+	}
+
+	form := url.Values{"name": {"   "}}
+	req := httptest.NewRequest(http.MethodPost, "/apps", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Sec-Fetch-Site", "same-origin")
+	req.AddCookie(&http.Cookie{Name: "centrauth_session", Value: token})
+	rec := httptest.NewRecorder()
+
+	app.routes().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("got status %d, want %d (dashboard re-rendered)", rec.Code, http.StatusOK)
+	}
+
+	body, err := io.ReadAll(rec.Body)
+	if err != nil {
+		t.Fatalf("reading body: %v", err)
+	}
+	if !strings.Contains(string(body), "App name is required") {
+		t.Error("response body missing error message")
+	}
+	if !strings.Contains(string(body), `action="/apps"`) {
+		t.Error("response body missing create-app form")
+	}
+
+	if len(applications.apps) != 0 {
+		t.Errorf("created %d apps with blank name, want 0", len(applications.apps))
+	}
+}
+
+func TestCreateAppRedirectsAnonymousToLogin(t *testing.T) {
+	app, _, _, _, _, _ := newTestApp()
+
+	form := url.Values{"name": {"Todo App"}}
+	req := httptest.NewRequest(http.MethodPost, "/apps", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Sec-Fetch-Site", "same-origin")
+	rec := httptest.NewRecorder()
+
+	app.routes().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("got status %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if loc := rec.Header().Get("Location"); loc != "/login" {
+		t.Errorf("Location = %q, want %q", loc, "/login")
 	}
 }
 
