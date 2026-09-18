@@ -80,8 +80,8 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /auth/register", a.registerHandler)
 	mux.HandleFunc("POST /auth/logout", a.logoutHandler)
 	mux.HandleFunc("GET /", a.rootHandler)
-	mux.Handle("GET /dashboard", middleware.RequireAuth(http.HandlerFunc(a.dashboardHandler)))
-	mux.Handle("POST /apps", middleware.RequireAuth(http.HandlerFunc(a.createAppHandler)))
+	mux.Handle("GET /admin", middleware.RequireAuth(http.HandlerFunc(a.dashboardHandler)))
+	mux.Handle("POST /admin/apps", middleware.RequireAuth(http.HandlerFunc(a.createAppHandler)))
 	mux.Handle("GET /static/", http.StripPrefix("/static/", fileServer))
 
 	var handler http.Handler = mux

@@ -38,7 +38,7 @@ func (a *App) loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	a.sessions.SetCookie(w, token)
 
-	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
 }
 
 func (a *App) registerHandler(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +67,7 @@ func (a *App) registerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	a.sessions.SetCookie(w, token)
 
-	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
 }
 
 func (a *App) renderLogin(w http.ResponseWriter, data loginPageData) {

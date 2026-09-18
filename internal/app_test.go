@@ -313,7 +313,7 @@ func TestRoutesAllowSameOriginPost(t *testing.T) {
 	}
 }
 
-func TestRootRedirectsToDashboard(t *testing.T) {
+func TestRootRedirectsToAdmin(t *testing.T) {
 	app, _, _, _, _, _ := newTestApp()
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -324,15 +324,15 @@ func TestRootRedirectsToDashboard(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("got status %d, want %d", rec.Code, http.StatusSeeOther)
 	}
-	if loc := rec.Header().Get("Location"); loc != "/dashboard" {
-		t.Errorf("Location = %q, want %q", loc, "/dashboard")
+	if loc := rec.Header().Get("Location"); loc != "/admin" {
+		t.Errorf("Location = %q, want %q", loc, "/admin")
 	}
 }
 
-func TestDashboardRedirectsAnonymousToLogin(t *testing.T) {
+func TestAdminRedirectsAnonymousToLogin(t *testing.T) {
 	app, _, _, _, _, _ := newTestApp()
 
-	req := httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
 	rec := httptest.NewRecorder()
 
 	app.routes().ServeHTTP(rec, req)
@@ -345,7 +345,7 @@ func TestDashboardRedirectsAnonymousToLogin(t *testing.T) {
 	}
 }
 
-func TestDashboardRendersForAuthenticatedUser(t *testing.T) {
+func TestAdminRendersForAuthenticatedUser(t *testing.T) {
 	app, users, _, _, applications, clients := newTestApp()
 
 	user := db.User{ID: 7, Subject: "dashboard-subject", Email: "dash@example.com"}
@@ -362,7 +362,7 @@ func TestDashboardRendersForAuthenticatedUser(t *testing.T) {
 		t.Fatalf("creating session: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
 	req.AddCookie(&http.Cookie{Name: "centrauth_session", Value: token})
 	rec := httptest.NewRecorder()
 
@@ -381,7 +381,7 @@ func TestDashboardRendersForAuthenticatedUser(t *testing.T) {
 		`action="/auth/logout"`,
 		"Todo App",
 		`class="count-n">2<`,
-		`action="/apps" method="post" class="app-form"`,
+		`action="/admin/apps" method="post" class="app-form"`,
 	} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("response body missing %q", want)
@@ -401,7 +401,7 @@ func TestCreateAppRoute(t *testing.T) {
 	}
 
 	form := url.Values{"name": {"Todo App"}, "description": {"A todo app"}, "allowed_scopes": {"openid profile"}}
-	req := httptest.NewRequest(http.MethodPost, "/apps", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPost, "/admin/apps", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Sec-Fetch-Site", "same-origin")
 	req.AddCookie(&http.Cookie{Name: "centrauth_session", Value: token})
@@ -412,8 +412,8 @@ func TestCreateAppRoute(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("got status %d, want %d", rec.Code, http.StatusSeeOther)
 	}
-	if loc := rec.Header().Get("Location"); loc != "/dashboard" {
-		t.Errorf("Location = %q, want %q", loc, "/dashboard")
+	if loc := rec.Header().Get("Location"); loc != "/admin" {
+		t.Errorf("Location = %q, want %q", loc, "/admin")
 	}
 
 	if len(applications.apps) != 1 {
@@ -446,7 +446,7 @@ func TestCreateAppRequiresName(t *testing.T) {
 	}
 
 	form := url.Values{"name": {"   "}}
-	req := httptest.NewRequest(http.MethodPost, "/apps", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPost, "/admin/apps", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Sec-Fetch-Site", "same-origin")
 	req.AddCookie(&http.Cookie{Name: "centrauth_session", Value: token})
@@ -465,7 +465,7 @@ func TestCreateAppRequiresName(t *testing.T) {
 	if !strings.Contains(string(body), "App name is required") {
 		t.Error("response body missing error message")
 	}
-	if !strings.Contains(string(body), `action="/apps"`) {
+	if !strings.Contains(string(body), `action="/admin/apps"`) {
 		t.Error("response body missing create-app form")
 	}
 
@@ -478,7 +478,7 @@ func TestCreateAppRedirectsAnonymousToLogin(t *testing.T) {
 	app, _, _, _, _, _ := newTestApp()
 
 	form := url.Values{"name": {"Todo App"}}
-	req := httptest.NewRequest(http.MethodPost, "/apps", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPost, "/admin/apps", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Sec-Fetch-Site", "same-origin")
 	rec := httptest.NewRecorder()
@@ -523,8 +523,8 @@ func TestLoginCreatesSessionAndCookie(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("got status %d, want %d", rec.Code, http.StatusSeeOther)
 	}
-	if loc := rec.Header().Get("Location"); loc != "/dashboard" {
-		t.Errorf("Location = %q, want %q", loc, "/dashboard")
+	if loc := rec.Header().Get("Location"); loc != "/admin" {
+		t.Errorf("Location = %q, want %q", loc, "/admin")
 	}
 
 	var sessionCookie *http.Cookie
@@ -547,7 +547,7 @@ func TestLoginCreatesSessionAndCookie(t *testing.T) {
 		t.Errorf("stored session UserID = %d, want %d", sessions.sessions[0].UserID, user.ID)
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+	req = httptest.NewRequest(http.MethodGet, "/admin", nil)
 	req.AddCookie(sessionCookie)
 	rec = httptest.NewRecorder()
 
@@ -640,7 +640,7 @@ func TestLogoutRevokesSessionAndClearsCookie(t *testing.T) {
 		t.Errorf("Validate() after logout error = %v, want %v", err, session.ErrSessionRevoked)
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+	req = httptest.NewRequest(http.MethodGet, "/admin", nil)
 	req.AddCookie(&http.Cookie{Name: "centrauth_session", Value: token})
 	rec = httptest.NewRecorder()
 

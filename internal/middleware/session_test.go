@@ -169,7 +169,7 @@ func TestSessionMiddleware(t *testing.T) {
 			})
 			handler := Session(next, manager, users)
 
-			req := httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+			req := httptest.NewRequest(http.MethodGet, "/admin", nil)
 			if tt.cookie != nil {
 				req.AddCookie(tt.cookie)
 			}
@@ -196,7 +196,7 @@ func TestRequireAuthRedirectsAnonymous(t *testing.T) {
 		called = true
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
 	rec := httptest.NewRecorder()
 
 	RequireAuth(next).ServeHTTP(rec, req)
@@ -219,7 +219,7 @@ func TestRequireAuthAllowsAuthenticated(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
 	ctx := context.WithValue(req.Context(), userKey, &db.User{ID: 7})
 	req = req.WithContext(ctx)
 	rec := httptest.NewRecorder()
