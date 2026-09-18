@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/adamdlear/centrauth/internal/admin/templates"
 	"github.com/adamdlear/centrauth/internal/db"
 	"github.com/adamdlear/centrauth/internal/middleware"
 	"github.com/adamdlear/centrauth/internal/repository"
@@ -21,7 +22,7 @@ type App struct {
 	logger       *slog.Logger
 	server       *http.Server
 	db           *db.DB
-	templates    *templates
+	templates    *templates.Templates
 	login        *service.LoginService
 	sessions     *session.Manager
 	users        repository.UserRepository
@@ -48,7 +49,7 @@ func NewApp(cfg AppConfig, database *db.DB) *App {
 	a := &App{
 		logger:       slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
 		db:           database,
-		templates:    newTemplates(),
+		templates:    templates.New(),
 		login:        service.NewLoginService(logger, userRepo, credRepo),
 		sessions:     session.NewManager(sessionRepo, cfg.SessionConfig),
 		users:        userRepo,

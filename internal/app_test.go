@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/adamdlear/centrauth/internal/admin/templates"
 	"github.com/adamdlear/centrauth/internal/db"
 	"github.com/adamdlear/centrauth/internal/repository"
 	"github.com/adamdlear/centrauth/internal/service"
@@ -230,7 +231,7 @@ func newTestApp() (*App, *fakeUserRepo, *fakeCredentialRepo, *fakeSessionRepo, *
 
 	app := &App{
 		logger:       logger,
-		templates:    newTemplates(),
+		templates:    templates.New(),
 		login:        service.NewLoginService(logger, users, creds),
 		sessions:     session.NewManager(sessions, session.Config{CookieName: "centrauth_session", TTL: time.Hour}),
 		users:        users,

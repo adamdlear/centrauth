@@ -80,7 +80,7 @@ func (a *App) dashboardData(ctx context.Context) (dashboardPageData, error) {
 
 func (a *App) renderDashboard(w http.ResponseWriter, data dashboardPageData) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := a.templates.dashboard.ExecuteTemplate(w, "dashboard.html", data); err != nil {
+	if err := a.templates.Dashboard.ExecuteTemplate(w, "dashboard.html", data); err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 	}
 }

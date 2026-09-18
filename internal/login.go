@@ -72,7 +72,7 @@ func (a *App) registerHandler(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) renderLogin(w http.ResponseWriter, data loginPageData) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := a.templates.login.ExecuteTemplate(w, "login.html", data); err != nil {
+	if err := a.templates.Login.ExecuteTemplate(w, "login.html", data); err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 	}
 }
