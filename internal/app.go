@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/adamdlear/centrauth/internal/admin"
 	"github.com/adamdlear/centrauth/internal/admin/templates"
 	"github.com/adamdlear/centrauth/internal/db"
 	"github.com/adamdlear/centrauth/internal/middleware"
@@ -19,15 +20,14 @@ import (
 )
 
 type App struct {
-	logger       *slog.Logger
-	server       *http.Server
-	db           *db.DB
-	templates    *templates.Templates
-	login        *service.LoginService
-	sessions     *session.Manager
-	users        repository.UserRepository
-	clients      repository.ClientRepository
-	applications repository.ApplicationRepository
+	logger    *slog.Logger
+	server    *http.Server
+	db        *db.DB
+	templates *templates.Templates
+	login     *service.LoginService
+	sessions  *session.Manager
+	users     repository.UserRepository
+	admin     *admin.Handler
 }
 
 //go:embed static/*
@@ -46,15 +46,16 @@ func NewApp(cfg AppConfig, database *db.DB) *App {
 	clientRepo := repository.NewGormClientRepo(database.Client)
 	applicationRepo := repository.NewGormApplicationRepo(database.Client)
 
+	tpl := templates.New()
+
 	a := &App{
-		logger:       slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
-		db:           database,
-		templates:    templates.New(),
-		login:        service.NewLoginService(logger, userRepo, credRepo),
-		sessions:     session.NewManager(sessionRepo, cfg.SessionConfig),
-		users:        userRepo,
-		clients:      clientRepo,
-		applications: applicationRepo,
+		logger:    slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
+		db:        database,
+		templates: tpl,
+		login:     service.NewLoginService(logger, userRepo, credRepo),
+		sessions:  session.NewManager(sessionRepo, cfg.SessionConfig),
+		users:     userRepo,
+		admin:     admin.NewHandler(logger, tpl, applicationRepo, clientRepo),
 	}
 
 	a.server = &http.Server{
@@ -80,8 +81,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /auth/register", a.registerHandler)
 	mux.HandleFunc("POST /auth/logout", a.logoutHandler)
 	mux.HandleFunc("GET /", a.rootHandler)
-	mux.Handle("GET /admin", middleware.RequireAuth(http.HandlerFunc(a.dashboardHandler)))
-	mux.Handle("POST /admin/apps", middleware.RequireAuth(http.HandlerFunc(a.createAppHandler)))
+	a.admin.Register(mux)
 	mux.Handle("GET /static/", http.StripPrefix("/static/", fileServer))
 
 	var handler http.Handler = mux
@@ -90,6 +90,10 @@ func (a *App) routes() http.Handler {
 	handler = middleware.Logger(handler)
 
 	return handler
+}
+
+func (a *App) rootHandler(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
 }
 
 func (a *App) Run(ctx context.Context) error {

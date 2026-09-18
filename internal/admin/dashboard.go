@@ -1,4 +1,4 @@
-package internal
+package admin
 
 import (
 	"context"
@@ -6,10 +6,6 @@ import (
 
 	"github.com/adamdlear/centrauth/internal/middleware"
 )
-
-func (a *App) rootHandler(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/admin", http.StatusSeeOther)
-}
 
 type dashboardAppView struct {
 	Name        string
@@ -26,7 +22,7 @@ type dashboardPageData struct {
 	Apps  []dashboardAppView
 }
 
-func (a *App) dashboardHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) dashboardHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	user := middleware.UserFromContext(ctx)
@@ -35,22 +31,22 @@ func (a *App) dashboardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := a.dashboardData(ctx)
+	data, err := h.dashboardData(ctx)
 	if err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 	data.Email = user.Email
 
-	a.renderDashboard(w, data)
+	h.renderDashboard(w, data)
 }
 
-func (a *App) dashboardData(ctx context.Context) (dashboardPageData, error) {
-	apps, err := a.applications.List(ctx)
+func (h *Handler) dashboardData(ctx context.Context) (dashboardPageData, error) {
+	apps, err := h.applications.List(ctx)
 	if err != nil {
 		return dashboardPageData{}, err
 	}
-	clients, err := a.clients.List(ctx)
+	clients, err := h.clients.List(ctx)
 	if err != nil {
 		return dashboardPageData{}, err
 	}
@@ -78,9 +74,9 @@ func (a *App) dashboardData(ctx context.Context) (dashboardPageData, error) {
 	return dashboardPageData{Title: "Dashboard", Apps: views}, nil
 }
 
-func (a *App) renderDashboard(w http.ResponseWriter, data dashboardPageData) {
+func (h *Handler) renderDashboard(w http.ResponseWriter, data dashboardPageData) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := a.templates.Dashboard.ExecuteTemplate(w, "dashboard.html", data); err != nil {
+	if err := h.templates.Dashboard.ExecuteTemplate(w, "dashboard.html", data); err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 	}
 }
