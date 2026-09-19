@@ -39,6 +39,28 @@ type Session struct {
 
 func (Session) TableName() string { return "sessions" }
 
+type Operator struct {
+	ID           int64     `gorm:"primaryKey;autoIncrement"`
+	Email        string    `gorm:"uniqueIndex;not null;type:citext"`
+	PasswordHash string    `gorm:"column:password_hash;not null"`
+	CreatedAt    time.Time `gorm:"not null"`
+	UpdatedAt    time.Time `gorm:"not null"`
+}
+
+func (Operator) TableName() string { return "operators" }
+
+type OperatorSession struct {
+	ID         int64      `gorm:"primaryKey;autoIncrement"`
+	TokenHash  []byte     `gorm:"column:token_hash;not null;uniqueIndex"`
+	OperatorID int64      `gorm:"column:operator_id;not null;index"`
+	ExpiresAt  time.Time  `gorm:"column:expires_at;not null;index"`
+	RevokedAt  *time.Time `gorm:"column:revoked_at"`
+	CreatedAt  time.Time  `gorm:"not null"`
+	UpdatedAt  time.Time  `gorm:"not null"`
+}
+
+func (OperatorSession) TableName() string { return "operator_sessions" }
+
 type Application struct {
 	ID            int64          `gorm:"primaryKey;autoIncrement"`
 	Name          string         `gorm:"column:name;not null"`
