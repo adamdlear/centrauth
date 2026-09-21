@@ -79,6 +79,22 @@ func seedSession(t *testing.T, tx *gorm.DB, s db.Session) db.Session {
 	return s
 }
 
+func seedOperator(t *testing.T, tx *gorm.DB, o db.Operator) db.Operator {
+	t.Helper()
+	if err := tx.Create(&o).Error; err != nil {
+		t.Fatalf("seeding operator: %v", err)
+	}
+	return o
+}
+
+func seedOperatorSession(t *testing.T, tx *gorm.DB, s db.OperatorSession) db.OperatorSession {
+	t.Helper()
+	if err := tx.Create(&s).Error; err != nil {
+		t.Fatalf("seeding operator session: %v", err)
+	}
+	return s
+}
+
 func seedApplication(t *testing.T, tx *gorm.DB, a db.Application) db.Application {
 	t.Helper()
 	if err := tx.Create(&a).Error; err != nil {
