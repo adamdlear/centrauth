@@ -1,0 +1,34 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<div class="entry">
+  <main class="authpanel">
+    <header class="tblock">
+      <div class="tblock-cell"><span class="mark"></span><span class="wordmark">centrauth</span></div>
+      <div class="tblock-cell"><span class="tblock-tag">operator access</span></div>
+      <div class="tblock-cell"><span class="led" aria-hidden="true"></span></div>
+    </header>
+
+    <div class="authbody">
+      {{if .Error}}<div class="alert" role="alert">{{.Error}}</div>{{end}}
+
+      <form action="/admin/auth/login" method="post" class="auth-form">
+        <div class="field">
+          <label for="operator-email">Email</label>
+          <input id="operator-email" type="email" name="email" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <label for="operator-password">Password</label>
+          <input id="operator-password" type="password" name="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Sign in</button>
+      </form>
+    </div>
+
+    <footer class="authfoot">
+      <div class="authfoot-cell">self-hosted sso</div>
+      <div class="authfoot-cell">operator</div>
+    </footer>
+  </main>
+</div>
+{{end}}

@@ -307,6 +307,12 @@ button {
   border-bottom-color: var(--accent);
 }
 
+.setup-intro {
+  margin: 0 0 1.35rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
 /* ————— forms ————— */
 
 .auth-form {

@@ -1,0 +1,40 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<div class="entry">
+  <main class="authpanel">
+    <header class="tblock">
+      <div class="tblock-cell"><span class="mark"></span><span class="wordmark">centrauth</span></div>
+      <div class="tblock-cell"><span class="tblock-tag">first-run setup</span></div>
+      <div class="tblock-cell"><span class="led" aria-hidden="true"></span></div>
+    </header>
+
+    <div class="authbody">
+      {{if .Error}}<div class="alert" role="alert">{{.Error}}</div>{{end}}
+
+      <p class="setup-intro">Create the first operator account for this instance. This is the only sign-up centrauth has &mdash; the page is disabled once an operator exists.</p>
+
+      <form action="/setup" method="post" class="auth-form">
+        <div class="field">
+          <label for="setup-email">Email</label>
+          <input id="setup-email" type="email" name="email" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <label for="setup-password">Password</label>
+          <input id="setup-password" type="password" name="password" autocomplete="new-password" required>
+        </div>
+        <div class="field">
+          <label for="setup-password-confirm">Confirm password</label>
+          <input id="setup-password-confirm" type="password" name="password_confirm" autocomplete="new-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Create operator</button>
+      </form>
+    </div>
+
+    <footer class="authfoot">
+      <div class="authfoot-cell">self-hosted sso</div>
+      <div class="authfoot-cell">one-time setup</div>
+    </footer>
+  </main>
+</div>
+{{end}}

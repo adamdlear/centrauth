@@ -15,6 +15,7 @@ var ErrSeatTaken = errors.New("seat is already taken")
 
 type OperatorRepository interface {
 	GetByEmail(ctx context.Context, email string) (db.Operator, error)
+	GetByID(ctx context.Context, id int64) (db.Operator, error)
 	Count(ctx context.Context) (int64, error)
 	CreateFirstOperator(ctx context.Context, operator *db.Operator) (db.Operator, error)
 }
@@ -34,6 +35,14 @@ func (r *gormOperatorRepo) create(ctx context.Context, operator *db.Operator) (d
 
 func (r *gormOperatorRepo) GetByEmail(ctx context.Context, email string) (db.Operator, error) {
 	operator, err := gorm.G[db.Operator](r.db).Where("email = ?", email).First(ctx)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return operator, ErrNotFound
+	}
+	return operator, err
+}
+
+func (r *gormOperatorRepo) GetByID(ctx context.Context, id int64) (db.Operator, error) {
+	operator, err := gorm.G[db.Operator](r.db).Where("id = ?", id).First(ctx)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return operator, ErrNotFound
 	}

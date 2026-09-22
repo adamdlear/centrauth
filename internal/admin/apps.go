@@ -12,9 +12,9 @@ import (
 func (h *Handler) createAppHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	user := middleware.UserFromContext(ctx)
-	if user == nil {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
+	operator := middleware.OperatorFromContext(ctx)
+	if operator == nil {
+		http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 		return
 	}
 
@@ -28,7 +28,7 @@ func (h *Handler) createAppHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
-		data.Email = user.Email
+		data.Email = operator.Email
 		data.Error = "App name is required"
 		h.renderDashboard(w, data)
 		return

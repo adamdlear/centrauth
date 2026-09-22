@@ -20,14 +20,17 @@ import (
 )
 
 type App struct {
-	logger    *slog.Logger
-	server    *http.Server
-	db        *db.DB
-	templates *templates.Templates
-	login     *service.LoginService
-	sessions  *session.Manager
-	users     repository.UserRepository
-	admin     *admin.Handler
+	logger           *slog.Logger
+	server           *http.Server
+	db               *db.DB
+	templates        *templates.Templates
+	login            *service.LoginService
+	operatorLogin    *service.OperatorLoginService
+	sessions         *session.Manager
+	operatorSessions *session.OperatorManager
+	users            repository.UserRepository
+	operators        repository.OperatorRepository
+	admin            *admin.Handler
 }
 
 //go:embed static/*
@@ -45,17 +48,24 @@ func NewApp(cfg AppConfig, database *db.DB) *App {
 	sessionRepo := repository.NewGormSessionRepo(database.Client)
 	clientRepo := repository.NewGormClientRepo(database.Client)
 	applicationRepo := repository.NewGormApplicationRepo(database.Client)
+	operatorRepo := repository.NewGormOperatoryRepo(database.Client)
+	operatorSessionRepo := repository.NewGormOperatorSessionRepo(database.Client)
 
 	tpl := templates.New()
+	operatorLogin := service.NewOperatorLoginService(logger, operatorRepo)
+	operatorSessions := session.NewOperatorManager(operatorSessionRepo, cfg.OperatorSessionConfig)
 
 	a := &App{
-		logger:    slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
-		db:        database,
-		templates: tpl,
-		login:     service.NewLoginService(logger, userRepo, credRepo),
-		sessions:  session.NewManager(sessionRepo, cfg.SessionConfig),
-		users:     userRepo,
-		admin:     admin.NewHandler(logger, tpl, applicationRepo, clientRepo),
+		logger:           slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
+		db:               database,
+		templates:        tpl,
+		login:            service.NewLoginService(logger, userRepo, credRepo),
+		operatorLogin:    operatorLogin,
+		sessions:         session.NewManager(sessionRepo, cfg.SessionConfig),
+		operatorSessions: operatorSessions,
+		users:            userRepo,
+		operators:        operatorRepo,
+		admin:            admin.NewHandler(logger, tpl, applicationRepo, clientRepo, operatorLogin, operatorSessions),
 	}
 
 	a.server = &http.Server{
@@ -81,11 +91,14 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /auth/register", a.registerHandler)
 	mux.HandleFunc("POST /auth/logout", a.logoutHandler)
 	mux.HandleFunc("GET /", a.rootHandler)
+	mux.HandleFunc("GET /setup", a.setupPageHandler)
+	mux.HandleFunc("POST /setup", a.setupHandler)
 	a.admin.Register(mux)
 	mux.Handle("GET /static/", http.StripPrefix("/static/", fileServer))
 
 	var handler http.Handler = mux
 	handler = middleware.Session(handler, a.sessions, a.users)
+	handler = middleware.OperatorSession(handler, a.operatorSessions, a.operators)
 	handler = middleware.CSRF(handler)
 	handler = middleware.Logger(handler)
 
@@ -112,6 +125,12 @@ func (a *App) Run(ctx context.Context) error {
 					a.logger.Error("failed to delete expired sessions", "error", err)
 				}
 				a.logger.Debug("deleted expired sessions", "count", count)
+
+				opCount, err := a.operatorSessions.DeleteInactive(ctx)
+				if err != nil {
+					a.logger.Error("failed to delete expired operator sessions", "error", err)
+				}
+				a.logger.Debug("deleted expired operator sessions", "count", opCount)
 			}
 		}
 	}()

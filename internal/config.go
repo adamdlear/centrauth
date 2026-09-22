@@ -20,9 +20,10 @@ type ServerConfig struct {
 }
 
 type AppConfig struct {
-	ServerConfig  ServerConfig
-	DBConfig      db.DBConfig
-	SessionConfig session.Config
+	ServerConfig          ServerConfig
+	DBConfig              db.DBConfig
+	SessionConfig         session.Config
+	OperatorSessionConfig session.Config
 }
 
 func LoadConfig() (AppConfig, error) {
@@ -54,6 +55,19 @@ func LoadConfig() (AppConfig, error) {
 		}
 	}
 
+	operatorCookieName := os.Getenv("OPERATOR_SESSION_COOKIE_NAME")
+	if operatorCookieName == "" {
+		operatorCookieName = "centrauth_operator"
+	}
+
+	operatorSessionTTL := sessionTTL
+	if raw := os.Getenv("OPERATOR_SESSION_TTL"); raw != "" {
+		operatorSessionTTL, err = time.ParseDuration(raw)
+		if err != nil {
+			return AppConfig{}, fmt.Errorf("invalid OPERATOR_SESSION_TTL: %w", err)
+		}
+	}
+
 	dbPort, err := strconv.Atoi(os.Getenv("DB_PORT"))
 	if err != nil {
 		return AppConfig{}, fmt.Errorf("invalid DB_PORT: %w", err)
@@ -77,6 +91,11 @@ func LoadConfig() (AppConfig, error) {
 		SessionConfig: session.Config{
 			CookieName: cookieName,
 			TTL:        sessionTTL,
+			Secure:     parsedIssuer.Scheme == "https",
+		},
+		OperatorSessionConfig: session.Config{
+			CookieName: operatorCookieName,
+			TTL:        operatorSessionTTL,
 			Secure:     parsedIssuer.Scheme == "https",
 		},
 	}, nil
