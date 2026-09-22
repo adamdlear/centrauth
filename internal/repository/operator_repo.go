@@ -24,12 +24,12 @@ type gormOperatorRepo struct {
 	db *gorm.DB
 }
 
-func NewGormOperatoryRepo(db *gorm.DB) OperatorRepository {
+func NewGormOperatorRepo(db *gorm.DB) OperatorRepository {
 	return &gormOperatorRepo{db: db}
 }
 
-func (r *gormOperatorRepo) create(ctx context.Context, operator *db.Operator) (db.Operator, error) {
-	err := gorm.G[db.Operator](r.db).Create(ctx, operator)
+func (r *gormOperatorRepo) create(ctx context.Context, tx *gorm.DB, operator *db.Operator) (db.Operator, error) {
+	err := gorm.G[db.Operator](tx).Create(ctx, operator)
 	return *operator, err
 }
 
@@ -53,6 +53,10 @@ func (r *gormOperatorRepo) Count(ctx context.Context) (int64, error) {
 	return gorm.G[db.Operator](r.db).Count(ctx, "*")
 }
 
+func (r *gormOperatorRepo) countTx(ctx context.Context, tx *gorm.DB) (int64, error) {
+	return gorm.G[db.Operator](tx).Count(ctx, "*")
+}
+
 func (r *gormOperatorRepo) CreateFirstOperator(ctx context.Context, operator *db.Operator) (db.Operator, error) {
 	h := fnv.New64a()
 	h.Write([]byte(setupSeatKey))
@@ -61,14 +65,14 @@ func (r *gormOperatorRepo) CreateFirstOperator(ctx context.Context, operator *db
 		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", key).Error; err != nil {
 			return err
 		}
-		count, err := r.Count(ctx)
+		count, err := r.countTx(ctx, tx)
 		if err != nil {
 			return err
 		}
 		if count > 0 {
 			return ErrSeatTaken
 		}
-		_, err = r.create(ctx, operator)
+		_, err = r.create(ctx, tx, operator)
 		return err
 	})
 	return *operator, err

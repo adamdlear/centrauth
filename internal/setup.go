@@ -3,6 +3,7 @@ package internal
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/adamdlear/centrauth/internal/db"
@@ -28,12 +29,22 @@ func (a *App) setupHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	email := r.FormValue("email")
+	email := strings.TrimSpace(r.FormValue("email"))
 	pwd := r.FormValue("password")
 	conf := r.FormValue("password_confirm")
 
 	if pwd != conf {
 		a.renderSetup(w, setupPageData{Title: "Setup", Error: "Passwords must match"})
+		return
+	}
+
+	if email == "" || !strings.Contains(email, "@") {
+		a.renderSetup(w, setupPageData{Title: "Setup", Error: "A valid email is required"})
+		return
+	}
+
+	if len(pwd) < 8 {
+		a.renderSetup(w, setupPageData{Title: "Setup", Error: "Password must be at least 8 characters"})
 		return
 	}
 
