@@ -20,17 +20,18 @@ import (
 )
 
 type App struct {
-	logger           *slog.Logger
-	server           *http.Server
-	db               *db.DB
-	templates        *templates.Templates
-	login            *service.LoginService
-	operatorLogin    *service.OperatorLoginService
-	sessions         *session.Manager
-	operatorSessions *session.OperatorManager
-	users            repository.UserRepository
-	operators        repository.OperatorRepository
-	admin            *admin.Handler
+	logger              *slog.Logger
+	server              *http.Server
+	db                  *db.DB
+	templates           *templates.Templates
+	login               *service.LoginService
+	operatorLogin       *service.OperatorLoginService
+	sessions            *session.Manager
+	operatorSessions    *session.OperatorManager
+	users               repository.UserRepository
+	operators           repository.OperatorRepository
+	admin               *admin.Handler
+	registrationEnabled bool
 }
 
 //go:embed static/*
@@ -48,7 +49,7 @@ func NewApp(cfg AppConfig, database *db.DB) *App {
 	sessionRepo := repository.NewGormSessionRepo(database.Client)
 	clientRepo := repository.NewGormClientRepo(database.Client)
 	applicationRepo := repository.NewGormApplicationRepo(database.Client)
-	operatorRepo := repository.NewGormOperatoryRepo(database.Client)
+	operatorRepo := repository.NewGormOperatorRepo(database.Client)
 	operatorSessionRepo := repository.NewGormOperatorSessionRepo(database.Client)
 
 	tpl := templates.New()
@@ -56,16 +57,17 @@ func NewApp(cfg AppConfig, database *db.DB) *App {
 	operatorSessions := session.NewOperatorManager(operatorSessionRepo, cfg.OperatorSessionConfig)
 
 	a := &App{
-		logger:           slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
-		db:               database,
-		templates:        tpl,
-		login:            service.NewLoginService(logger, userRepo, credRepo),
-		operatorLogin:    operatorLogin,
-		sessions:         session.NewManager(sessionRepo, cfg.SessionConfig),
-		operatorSessions: operatorSessions,
-		users:            userRepo,
-		operators:        operatorRepo,
-		admin:            admin.NewHandler(logger, tpl, applicationRepo, clientRepo, operatorLogin, operatorSessions),
+		logger:              slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
+		db:                  database,
+		templates:           tpl,
+		login:               service.NewLoginService(logger, userRepo, credRepo),
+		operatorLogin:       operatorLogin,
+		sessions:            session.NewManager(sessionRepo, cfg.SessionConfig),
+		operatorSessions:    operatorSessions,
+		users:               userRepo,
+		operators:           operatorRepo,
+		admin:               admin.NewHandler(logger, tpl, applicationRepo, clientRepo, operatorLogin, operatorSessions),
+		registrationEnabled: cfg.RegistrationEnabled,
 	}
 
 	a.server = &http.Server{

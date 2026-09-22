@@ -376,14 +376,69 @@ func TestLoginPageRenders(t *testing.T) {
 
 	for _, want := range []string{
 		`action="/auth/login"`,
-		`action="/auth/register"`,
 		`name="email"`,
 		`name="password"`,
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("response body missing %q", want)
+		}
+	}
+
+	for _, notWant := range []string{
+		`action="/auth/register"`,
+		"Create account",
+	} {
+		if strings.Contains(string(body), notWant) {
+			t.Errorf("response body should not contain %q when registration is disabled", notWant)
+		}
+	}
+}
+
+func TestLoginPageShowsRegistrationWhenEnabled(t *testing.T) {
+	app, _, _, _, _, _, _, _ := newTestApp()
+	app.registrationEnabled = true
+
+	req := httptest.NewRequest(http.MethodGet, "/login", nil)
+	rec := httptest.NewRecorder()
+
+	app.routes().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("got status %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	body, err := io.ReadAll(rec.Body)
+	if err != nil {
+		t.Fatalf("reading body: %v", err)
+	}
+
+	for _, want := range []string{
+		`action="/auth/register"`,
 		`name="password_confirm"`,
 	} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("response body missing %q", want)
 		}
+	}
+}
+
+func TestRegisterDisabledByDefault(t *testing.T) {
+	app, users, _, _, _, _, _, _ := newTestApp()
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/register", nil)
+	req.Header.Set("Sec-Fetch-Site", "same-origin")
+	rec := httptest.NewRecorder()
+
+	app.routes().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("got status %d, want %d", rec.Code, http.StatusForbidden)
+	}
+	if body, _ := io.ReadAll(rec.Body); strings.Contains(string(body), `action="/auth/register"`) {
+		t.Error("register form should not render when registration is disabled")
+	}
+	if len(users.byID) != 0 {
+		t.Errorf("expected no users created, got %d", len(users.byID))
 	}
 }
 
@@ -403,6 +458,7 @@ func TestRoutesRejectCrossSitePost(t *testing.T) {
 
 func TestRoutesAllowSameOriginPost(t *testing.T) {
 	app, _, _, _, _, _, _, _ := newTestApp()
+	app.registrationEnabled = true
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/register", nil)
 	req.Header.Set("Sec-Fetch-Site", "same-origin")

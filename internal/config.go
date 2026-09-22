@@ -24,6 +24,7 @@ type AppConfig struct {
 	DBConfig              db.DBConfig
 	SessionConfig         session.Config
 	OperatorSessionConfig session.Config
+	RegistrationEnabled   bool
 }
 
 func LoadConfig() (AppConfig, error) {
@@ -73,6 +74,8 @@ func LoadConfig() (AppConfig, error) {
 		return AppConfig{}, fmt.Errorf("invalid DB_PORT: %w", err)
 	}
 
+	registrationEnabled := os.Getenv("ENABLE_REGISTRATION") == "true"
+
 	return AppConfig{
 		ServerConfig: ServerConfig{
 			Addr:         serverAddr,
@@ -98,5 +101,6 @@ func LoadConfig() (AppConfig, error) {
 			TTL:        operatorSessionTTL,
 			Secure:     parsedIssuer.Scheme == "https",
 		},
+		RegistrationEnabled: registrationEnabled,
 	}, nil
 }

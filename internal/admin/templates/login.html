@@ -12,10 +12,12 @@
     <div class="authbody">
       {{if .Error}}<div class="alert" role="alert">{{.Error}}</div>{{end}}
 
+      {{if .RegistrationEnabled}}
       <div class="tabs" role="tablist" aria-label="Account access">
         <button type="button" class="tab is-active" id="tab-signin" role="tab" aria-selected="true" aria-controls="signin" data-panel="signin">Sign in</button>
         <button type="button" class="tab" id="tab-signup" role="tab" tabindex="-1" aria-selected="false" aria-controls="signup" data-panel="signup">Create account</button>
       </div>
+      {{end}}
 
       <form id="signin" action="/auth/login" method="post" class="auth-form" role="tabpanel" aria-labelledby="tab-signin">
         <div class="field">
@@ -29,6 +31,7 @@
         <button type="submit" class="btn btn-primary">Sign in</button>
       </form>
 
+      {{if .RegistrationEnabled}}
       <form id="signup" action="/auth/register" method="post" class="auth-form" hidden role="tabpanel" aria-labelledby="tab-signup">
         <div class="field">
           <label for="signup-email">Email</label>
@@ -44,6 +47,7 @@
         </div>
         <button type="submit" class="btn btn-primary">Create account</button>
       </form>
+      {{end}}
     </div>
 
     <footer class="authfoot">

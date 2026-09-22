@@ -8,12 +8,13 @@ import (
 )
 
 type loginPageData struct {
-	Title string
-	Error string
+	Title               string
+	Error               string
+	RegistrationEnabled bool
 }
 
 func (a *App) loginPageHandler(w http.ResponseWriter, r *http.Request) {
-	a.renderLogin(w, loginPageData{Title: "Sign In"})
+	a.renderLogin(w, loginPageData{Title: "Sign In", RegistrationEnabled: a.registrationEnabled})
 }
 
 func (a *App) loginHandler(w http.ResponseWriter, r *http.Request) {
@@ -24,7 +25,7 @@ func (a *App) loginHandler(w http.ResponseWriter, r *http.Request) {
 	user, err := a.login.VerifyUserWithEmailAndPassword(ctx, email, pwd)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidCredentials) {
-			a.renderLogin(w, loginPageData{Title: "Sign In", Error: "Invalid email or password"})
+			a.renderLogin(w, loginPageData{Title: "Sign In", Error: "Invalid email or password", RegistrationEnabled: a.registrationEnabled})
 			return
 		}
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -42,13 +43,18 @@ func (a *App) loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) registerHandler(w http.ResponseWriter, r *http.Request) {
+	if !a.registrationEnabled {
+		a.renderLoginForbidden(w, loginPageData{Title: "Sign In", Error: "Registration is disabled"})
+		return
+	}
+
 	ctx := r.Context()
 	email := r.FormValue("email")
 	pwd := r.FormValue("password")
 	conf := r.FormValue("password_confirm")
 
 	if pwd != conf {
-		a.renderLogin(w, loginPageData{Title: "Sign In", Error: "Passwords must match"})
+		a.renderLogin(w, loginPageData{Title: "Sign In", Error: "Passwords must match", RegistrationEnabled: a.registrationEnabled})
 		return
 	}
 
@@ -68,6 +74,14 @@ func (a *App) registerHandler(w http.ResponseWriter, r *http.Request) {
 	a.sessions.SetCookie(w, token)
 
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
+func (a *App) renderLoginForbidden(w http.ResponseWriter, data loginPageData) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusForbidden)
+	if err := a.templates.Login.ExecuteTemplate(w, "login.html", data); err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+	}
 }
 
 func (a *App) renderLogin(w http.ResponseWriter, data loginPageData) {
