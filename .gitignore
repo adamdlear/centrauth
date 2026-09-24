@@ -4,3 +4,4 @@ coverage.out
 /centrauth
 .DS_Store
 *.swp
+/tmp/

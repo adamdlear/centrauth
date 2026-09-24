@@ -9,6 +9,10 @@ run:
 	@echo "Running centrauth..."
 	go run ./cmd/centrauth/main.go
 
+dev:
+	@echo "Running centrauth with hot reload..."
+	air -c .air.toml
+
 test:
 	@echo "Running unit tests..."
 	go test -v -race -covermode=atomic -coverprofile=coverage.out ./...
