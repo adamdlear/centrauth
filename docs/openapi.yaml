@@ -1,0 +1,241 @@
+# OpenAPI spec for the core auth API of centrauth.
+#
+# Scope: routes intended for SDK clients (health + auth endpoints).
+# The admin UI routes (GET /admin, POST /admin/auth/*, etc.) and the
+# browser-only HTML flows (/login, /setup) are intentionally excluded.
+#
+# Notes:
+#   - Auth endpoints are form-encoded and return redirects with session
+#     cookies, not JSON tokens.
+#   - CSRF protection: http.NewCrossOriginProtection is applied globally,
+#     so cross-origin requests must complete a trusted-origin handshake or
+#     come from a trusted origin (Sec-Fetch-Site: same-origin / same-site).
+openapi: 3.0.3
+info:
+  title: centrauth Auth API
+  description: |
+    centrauth is a self-hosted authentication service.
+
+    This document describes the **core API routes that SDK clients use**:
+
+    - `GET /healthz` — service health probe
+    - `POST /auth/login` — authenticate an end user
+    - `POST /auth/register` — create a new end-user account
+    - `POST /auth/logout` — revoke the end-user session
+
+    ### Conventions
+    - Requests use `application/x-www-form-urlencoded` bodies (HTML-friendly
+      and easy to emit from any SDK).
+    - Successful login/register/logout respond with an HTTP redirect plus a
+      session cookie; there is no JSON token in the body.
+    - All state-changing endpoints are protected by Origin/CSRF checking
+      (Go's `CrossOriginProtection`).
+  version: 0.1.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+security:
+  - cookieAuth: []
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://auth.example.com
+    description: Production (replace with your deployment)
+tags:
+  - name: Health
+    description: Service and database health probes
+  - name: Auth
+    description: End-user authentication, registration, and session lifecycle
+paths:
+  /healthz:
+    get:
+      operationId: getHealth
+      security: []
+      tags:
+        - Health
+      summary: Check service and database health
+      description: |
+        Returns service status. `503` when the database is missing or
+        unreachable, `200` otherwise.
+      responses:
+        '200':
+          description: Service is up and the database is reachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+              example:
+                status: ok
+        '503':
+          description: Service is up but the database is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+              example:
+                status: unavailable
+  /auth/login:
+    post:
+      operationId: login
+      tags:
+        - Auth
+      summary: Authenticate an end user
+      description: |
+        Verifies the email/password pair and starts a session by setting the
+        session cookie (`centrauth_session` by default). Returns a redirect
+        to the admin dashboard.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '303':
+          description: Authenticated; session cookie set, redirecting to /admin
+          headers:
+            Location:
+              description: Redirect target
+              schema:
+                type: string
+                example: /admin
+            Set-Cookie:
+              description: |
+                Session cookie (default name `centrauth_session`, HttpOnly).
+                Secure flag set when the issuer URL uses HTTPS.
+              schema:
+                type: string
+        '200':
+          description: |
+            Invalid email or password — re-renders the sign-in page with an
+            error (HTML, not JSON).
+          content:
+            text/html:
+              schema:
+                type: string
+        '500':
+          description: Internal error
+          content:
+            text/html:
+              schema:
+                type: string
+  /auth/register:
+    post:
+      operationId: register
+      tags:
+        - Auth
+      summary: Create a new user account and start a session
+      description: |
+        Creates a user, starts a session (session cookie), and redirects to
+        the admin dashboard. Only available when registration is enabled
+        (`ENABLE_REGISTRATION=true`); otherwise responds `403`.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '303':
+          description: Account created; session cookie set, redirecting to /admin
+          headers:
+            Location:
+              schema:
+                type: string
+                example: /admin
+            Set-Cookie:
+              description: Session cookie (default name `centrauth_session`)
+              schema:
+                type: string
+        '403':
+          description: Registration is disabled
+          content:
+            text/html:
+              schema:
+                type: string
+        '200':
+          description: |
+            Validation failure (passwords must match) — re-renders the
+            sign-in page with an error (HTML, not JSON).
+          content:
+            text/html:
+              schema:
+                type: string
+        '500':
+          description: Internal error
+          content:
+            text/html:
+              schema:
+                type: string
+  /auth/logout:
+    post:
+      operationId: logout
+      tags:
+        - Auth
+      summary: Revoke the current session
+      description: |
+        Revokes the session identified by the session cookie and clears the
+        cookie. Always redirects to the login page, even when no valid
+        session cookie was present.
+      responses:
+        '303':
+          description: Session revoked (or none present); cookie cleared
+          headers:
+            Location:
+              schema:
+                type: string
+                example: /login
+            Set-Cookie:
+              description: Expired/replacement session cookie
+              schema:
+                type: string
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: centrauth_session
+      description: HttpOnly session cookie issued by POST /auth/login,
+        /auth/register, or POST /setup.
+  schemas:
+    HealthStatus:
+      type: object
+      title: HealthStatus
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, unavailable]
+          description: Current health of the service
+    LoginRequest:
+      type: object
+      title: LoginRequest
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          example: hunter2
+    RegisterRequest:
+      type: object
+      title: RegisterRequest
+      required: [email, password, password_confirm]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: correct-horse-battery-staple
+        password_confirm:
+          type: string
+          format: password
+          description: Must equal `password`
+          example: hunter2
