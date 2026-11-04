@@ -207,3 +207,54 @@ func TestApplicationRepo_GetWithClients(t *testing.T) {
 		t.Errorf("GetWithClients(clientless app) = %v clients, want none", clients)
 	}
 }
+
+func TestApplicationRepo_CreateWithClient(t *testing.T) {
+	tx := newTestTx(t)
+	repo := NewGormApplicationRepo(tx)
+
+	app := &db.Application{
+		Name:          "Registered App",
+		AllowedScopes: pq.StringArray{"openid"},
+	}
+	client := &db.OAuthClient{
+		ClientID:     "registered-app-client",
+		ClientType:   "confidential",
+		RedirectURIs: pq.StringArray{"https://example.com/callback"},
+		Environment:  "production",
+	}
+
+	if err := repo.CreateWithClient(context.Background(), app, client); err != nil {
+		t.Fatalf("CreateWithClient() error = %v", err)
+	}
+	if app.ID == 0 || client.ID == 0 {
+		t.Fatalf("CreateWithClient() did not backfill IDs: app=%d client=%d", app.ID, client.ID)
+	}
+	if client.ApplicationID != app.ID {
+		t.Errorf("client ApplicationID = %d, want %d", client.ApplicationID, app.ID)
+	}
+
+	fetchedApp, clients, err := repo.GetWithClients(context.Background(), app.ID)
+	if err != nil {
+		t.Fatalf("GetWithClients() error = %v", err)
+	}
+	if fetchedApp.Name != "Registered App" {
+		t.Errorf("app name = %q, want %q", fetchedApp.Name, "Registered App")
+	}
+	if len(clients) != 1 || clients[0].ClientID != "registered-app-client" {
+		t.Errorf("clients = %+v, want the registered client", clients)
+	}
+
+	// A duplicate client ID must roll back the app insert as well.
+	rollbackApp := &db.Application{Name: "Rolled Back App"}
+	duplicate := &db.OAuthClient{
+		ClientID:     "registered-app-client",
+		ClientType:   "public",
+		RedirectURIs: pq.StringArray{"https://example.com/callback"},
+	}
+	if err := repo.CreateWithClient(context.Background(), rollbackApp, duplicate); err == nil {
+		t.Fatal("CreateWithClient() with duplicate client ID error = nil, want error")
+	}
+	if _, err := repo.GetByID(context.Background(), rollbackApp.ID); !errors.Is(err, ErrNotFound) {
+		t.Errorf("rolled-back app lookup error = %v, want ErrNotFound", err)
+	}
+}

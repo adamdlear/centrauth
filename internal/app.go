@@ -73,7 +73,7 @@ func NewApp(cfg AppConfig, database *db.DB) (*App, error) {
 		operatorSessions: operatorSessions,
 		users:            userRepo,
 		operators:        operatorRepo,
-		admin:            admin.NewHandler(logger, tpl, applicationRepo, clientRepo, operatorLogin, operatorSessions),
+		admin:            admin.NewHandler(logger, tpl, applicationRepo, clientRepo, service.NewAppService(applicationRepo, clientRepo), operatorLogin, operatorSessions),
 		keyManager:       keyManager,
 		discovery:        oidc.NewDiscoveryConfig(cfg.ServerConfig.IssuerURL),
 		idTokens:         oidc.NewIDTokenIssuer(keyManager, cfg.ServerConfig.IssuerURL, cfg.ServerConfig.IDTokenTTL),

@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"crypto/sha256"
 	"testing"
 
 	"github.com/adamdlear/centrauth/internal/db"
@@ -127,5 +128,23 @@ func TestValidateRequestedScopes(t *testing.T) {
 				t.Errorf("ValidateRequestedScopes(%q) = %v, want %v", tt.scopeParam, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestValidateClientSecret(t *testing.T) {
+	hash := sha256.Sum256([]byte("correct-secret"))
+	client := db.OAuthClient{ClientSecretHash: hash[:]}
+
+	if !ValidateClientSecret(client, "correct-secret") {
+		t.Error("ValidateClientSecret() rejected the correct secret")
+	}
+	if ValidateClientSecret(client, "wrong-secret") {
+		t.Error("ValidateClientSecret() accepted a wrong secret")
+	}
+	if ValidateClientSecret(client, "") {
+		t.Error("ValidateClientSecret() accepted an empty secret")
+	}
+	if ValidateClientSecret(db.OAuthClient{}, "correct-secret") {
+		t.Error("ValidateClientSecret() accepted a secret for a client without a hash")
 	}
 }

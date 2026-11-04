@@ -1,0 +1,95 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<header class="topbar">
+  <span class="wordmark"><span class="mark"></span>centrauth</span>
+  <div class="topbar-id">
+    <span class="who">{{.Email}}</span>
+    <form action="/admin/auth/logout" method="post">
+      <button type="submit" class="btn btn-ghost btn-sm">Sign out</button>
+    </form>
+  </div>
+</header>
+
+<main class="page">
+  <p class="crumbs"><a href="/admin">dashboard</a> / <a href="/admin/apps">applications</a> / register</p>
+
+  <div class="pagehead">
+    <h1>Register application</h1>
+  </div>
+
+  <div class="panel">
+    <form action="/admin/apps" method="post" class="app-form">
+      {{if .Error}}<p class="form-error" role="alert">{{.Error}}</p>{{end}}
+
+      <h2>Application</h2>
+
+      <div class="field">
+        <label for="app-name">App name</label>
+        <input id="app-name" type="text" name="name" value="{{.Name}}" required>
+        {{with index .Errors "name"}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+      </div>
+
+      <div class="field">
+        <label for="app-description">Description</label>
+        <textarea id="app-description" name="description" rows="2" placeholder="What this app is for">{{.Description}}</textarea>
+      </div>
+
+      <div class="field">
+        <label><input type="checkbox" name="first_party" {{if .FirstParty}}checked{{end}}> First-party application</label>
+        <p class="hint">First-party apps skip the consent screen for now.</p>
+      </div>
+
+      <div class="field">
+        <label for="app-scopes">Allowed scopes</label>
+        <input id="app-scopes" type="text" name="allowed_scopes" value="{{.Scopes}}"
+               placeholder="openid profile email" autocomplete="off" aria-describedby="app-scopes-hint">
+        <p class="hint" id="app-scopes-hint">Space-separated. This is the ceiling for every client the app will ever have. Supported: openid, profile, email.</p>
+        {{with index .Errors "allowed_scopes"}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+      </div>
+
+      <h2>First client</h2>
+
+      <div class="field">
+        <label for="client-type">Client type</label>
+        <select id="client-type" name="client_type">
+          <option value="confidential" {{if eq .ClientType "confidential"}}selected{{end}}>Confidential</option>
+          <option value="public" {{if eq .ClientType "public"}}selected{{end}}>Public</option>
+        </select>
+        <p class="hint">Public clients (SPA, mobile, CLI) have no secret and use PKCE.</p>
+        {{with index .Errors "client_client_type"}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+      </div>
+
+      <div class="field">
+        <label for="client-env">Environment</label>
+        <select id="client-env" name="environment">
+          <option value="local" {{if eq .Environment "local"}}selected{{end}}>Local</option>
+          <option value="staging" {{if eq .Environment "staging"}}selected{{end}}>Staging</option>
+          <option value="production" {{if eq .Environment "production"}}selected{{end}}>Production</option>
+        </select>
+        {{with index .Errors "client_environment"}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+      </div>
+
+      <div class="field">
+        <label for="client-redirects">Redirect URIs</label>
+        <textarea id="client-redirects" name="redirect_uris" class="input-mono" rows="3"
+                  placeholder="https://example.com/auth/callback">{{.RedirectURIs}}</textarea>
+        <p class="hint">Exact matching, one per line. HTTPS is required, except for localhost.</p>
+        {{with index .Errors "client_redirect_uris"}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+      </div>
+
+      <div class="field">
+        <label for="client-post-logout">Post-logout redirect URIs</label>
+        <textarea id="client-post-logout" name="post_logout_redirect_uris" class="input-mono" rows="2"
+                  placeholder="optional">{{.PostLogoutRedirectURIs}}</textarea>
+        {{with index .Errors "client_post_logout_redirect_uris"}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+      </div>
+
+      <div class="formactions">
+        <a href="/admin/apps" class="btn btn-ghost btn-sm">Cancel</a>
+        <button type="submit" class="btn btn-primary">Register application</button>
+      </div>
+    </form>
+  </div>
+</main>
+{{end}}

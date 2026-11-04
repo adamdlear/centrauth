@@ -9,6 +9,7 @@ import (
 )
 
 type ClientRepository interface {
+	GetByID(ctx context.Context, id int64) (db.OAuthClient, error)
 	GetByClientID(ctx context.Context, clientID string) (db.OAuthClient, error)
 	Create(ctx context.Context, client *db.OAuthClient) (db.OAuthClient, error)
 	Update(ctx context.Context, client *db.OAuthClient) (db.OAuthClient, error)
@@ -23,6 +24,14 @@ type gormClientRepo struct {
 
 func NewGormClientRepo(db *gorm.DB) ClientRepository {
 	return &gormClientRepo{db: db}
+}
+
+func (r *gormClientRepo) GetByID(ctx context.Context, id int64) (db.OAuthClient, error) {
+	client, err := gorm.G[db.OAuthClient](r.db).Where("id = ?", id).First(ctx)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return client, ErrNotFound
+	}
+	return client, err
 }
 
 func (r *gormClientRepo) GetByClientID(ctx context.Context, clientID string) (db.OAuthClient, error) {

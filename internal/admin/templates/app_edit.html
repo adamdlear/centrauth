@@ -1,0 +1,55 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<header class="topbar">
+  <span class="wordmark"><span class="mark"></span>centrauth</span>
+  <div class="topbar-id">
+    <span class="who">{{.Email}}</span>
+    <form action="/admin/auth/logout" method="post">
+      <button type="submit" class="btn btn-ghost btn-sm">Sign out</button>
+    </form>
+  </div>
+</header>
+
+<main class="page">
+  <p class="crumbs"><a href="/admin">dashboard</a> / <a href="/admin/apps">applications</a> / <a href="/admin/apps/{{.AppID}}">{{.Title}}</a> / edit</p>
+
+  <div class="pagehead">
+    <h1>Edit application</h1>
+  </div>
+
+  <div class="panel">
+    <form action="/admin/apps/{{.AppID}}/edit" method="post" class="app-form">
+      {{if .Error}}<p class="form-error" role="alert">{{.Error}}</p>{{end}}
+
+      <div class="field">
+        <label for="app-name">App name</label>
+        <input id="app-name" type="text" name="name" value="{{.Name}}" required>
+        {{with index .Errors "name"}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+      </div>
+
+      <div class="field">
+        <label for="app-description">Description</label>
+        <textarea id="app-description" name="description" rows="2">{{.Description}}</textarea>
+      </div>
+
+      <div class="field">
+        <label><input type="checkbox" name="first_party" {{if .FirstParty}}checked{{end}}> First-party application</label>
+      </div>
+
+      <div class="field">
+        <label for="app-scopes">Allowed scopes</label>
+        <input id="app-scopes" type="text" name="allowed_scopes" value="{{.Scopes}}"
+               placeholder="openid profile email" autocomplete="off">
+        <p class="hint">Space-separated. Narrowing this ceiling does not change existing clients, but new authorization requests are validated against it.</p>
+        {{with index .Errors "allowed_scopes"}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+      </div>
+
+      <div class="formactions">
+        <a href="/admin/apps/{{.AppID}}" class="btn btn-ghost btn-sm">Cancel</a>
+        <button type="submit" class="btn btn-primary">Save changes</button>
+      </div>
+    </form>
+  </div>
+</main>
+{{end}}

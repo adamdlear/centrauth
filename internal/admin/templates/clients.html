@@ -1,0 +1,115 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<header class="topbar">
+  <span class="wordmark"><span class="mark"></span>centrauth</span>
+  <div class="topbar-id">
+    <span class="who">{{.Email}}</span>
+    <form action="/admin/auth/logout" method="post">
+      <button type="submit" class="btn btn-ghost btn-sm">Sign out</button>
+    </form>
+  </div>
+</header>
+
+<main class="page">
+  <p class="crumbs"><a href="/admin">applications</a> / {{.App.Name}}</p>
+
+  <div class="apphead">
+    <div class="apphead-main">
+      <h1>{{.App.Name}}</h1>
+      {{if .App.Description}}<p class="apphead-desc">{{.App.Description}}</p>{{end}}
+      <div class="apphead-chips">
+        {{if .App.FirstParty}}<span class="chip chip-solid">first-party</span>{{else}}<span class="chip">third-party</span>{{end}}
+        {{if .App.Scopes}}{{range .App.Scopes}}<span class="chip">{{.}}</span> {{end}}{{else}}<span class="mono-muted">no scopes</span>{{end}}
+      </div>
+    </div>
+    <div class="apphead-meta">
+      <div class="mcell"><span class="mcell-label">ID</span><span class="mcell-value">{{.App.ID}}</span></div>
+      <div class="mcell"><span class="mcell-label">Created</span><span class="mcell-value">{{.App.Created}}</span></div>
+      <div class="mcell"><span class="mcell-label">Clients</span><span class="mcell-value">{{.App.ClientCount}}</span></div>
+      <div class="mcell"><a class="btn btn-ghost btn-sm" href="/admin/apps/{{.App.ID}}/edit">Edit</a></div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="maincol">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Clients</h2>
+          <span class="panel-count">{{len .Clients}}</span>
+          <span class="spacer"></span>
+          <a class="btn btn-ghost btn-sm" href="/admin/apps/{{.App.ID}}/clients/new">
+            <span class="plus" aria-hidden="true"></span>New client
+          </a>
+        </div>
+
+        {{if .Clients}}
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th scope="col"><span class="visually-hidden">Expand</span></th>
+              <th scope="col">Client ID</th>
+              <th scope="col">Type</th>
+              <th scope="col">Environment</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .Clients}}
+            <tr class="clientrow" data-detail="client-{{.ID}}">
+              <td><button type="button" class="expander" aria-expanded="false" aria-controls="client-{{.ID}}"
+                          aria-label="Toggle {{.ClientID}} details"></button></td>
+              <td class="mono"><a href="/admin/clients/{{.ID}}">{{.ClientID}}</a></td>
+              <td><span class="chip{{if eq .Type "public"}} chip-public{{end}}">{{.Type}}</span></td>
+              <td><span class="chip{{if eq .Environment "production"}} chip-env-production{{else if eq .Environment "local"}} chip-env-local{{end}}">{{.Environment}}</span></td>
+            </tr>
+            <tr class="detailrow" id="client-{{.ID}}" hidden>
+              <td colspan="4">
+                <div class="clientdetail">
+                  <div class="clientmeta">
+                    <div><span class="cm-label">Client type</span><span class="cm-value">{{if eq .Type "public"}}public · PKCE{{else}}confidential{{end}}</span></div>
+                    <div><span class="cm-label">Auth method</span><span class="cm-value">{{.AuthMethod}}</span></div>
+                    <div><span class="cm-label">Created</span><span class="cm-value">{{.Created}}</span></div>
+                  </div>
+                  <div>
+                    <div class="well-head"><span class="well-label">Redirect URIs</span></div>
+                    {{if .RedirectURIs}}<pre class="well">{{range $i, $u := .RedirectURIs}}{{if $i}}
+{{end}}{{$u}}{{end}}</pre>{{else}}<p class="mono-muted">none</p>{{end}}
+                  </div>
+                  <div>
+                    <div class="well-head"><span class="well-label">Post-logout redirect URIs</span></div>
+                    {{if .PostLogoutRedirectURIs}}<pre class="well">{{range $i, $u := .PostLogoutRedirectURIs}}{{if $i}}
+{{end}}{{$u}}{{end}}</pre>{{else}}<p class="mono-muted">none</p>{{end}}
+                  </div>
+                  <div>
+                    <div class="well-head"><span class="well-label">Allowed origins</span></div>
+                    {{if .AllowedOrigins}}<pre class="well">{{range $i, $u := .AllowedOrigins}}{{if $i}}
+{{end}}{{$u}}{{end}}</pre>{{else}}<p class="mono-muted">none</p>{{end}}
+                  </div>
+                </div>
+              </td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+        {{else}}
+        <div class="panel-body">
+          <p class="mono-muted">No clients registered yet. Add the first one to start integrating this app.</p>
+        </div>
+        {{end}}
+      </div>
+
+    </div>
+
+    <aside class="rail">
+      <div class="panel">
+        <div class="panel-head"><h2>Environments</h2></div>
+        {{range .Envs}}
+        <div class="rowitem"><span class="name">{{.Name}}</span><span class="numnote">{{.Count}} {{if eq .Count 1}}client{{else}}clients{{end}}</span></div>
+        {{end}}
+      </div>
+    </aside>
+  </div>
+</main>
+
+<script src="/static/js/clients.js" defer></script>
+{{end}}

@@ -16,6 +16,14 @@ var pages = []string{
 	"dashboard.html",
 	"setup.html",
 	"operator_login.html",
+	"clients.html",
+	"app_list.html",
+	"app_new.html",
+	"app_registered.html",
+	"app_edit.html",
+	"client_new.html",
+	"client_registered.html",
+	"client_detail.html",
 }
 
 func New() *Templates {

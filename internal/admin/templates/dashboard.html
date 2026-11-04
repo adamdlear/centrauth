@@ -16,51 +16,9 @@
     <h1>Applications</h1>
     <span class="count">{{len .Apps}} {{if eq (len .Apps) 1}}app{{else}}apps{{end}}</span>
     <span class="spacer"></span>
-    <button type="button" class="btn btn-primary" id="addapp" aria-controls="newapp"
-            aria-expanded="{{if or .Error (not .Apps)}}true{{else}}false{{end}}">
-      <span class="plus" aria-hidden="true"></span>Add application
-    </button>
-  </div>
-
-  <div class="panel newapp" id="newapp" {{if not (or .Error (not .Apps))}}hidden{{end}}>
-    <div class="panel-head">
-      <h2>New application</h2>
-      <span class="panel-count">the apps your services sign in through</span>
-      <span class="spacer"></span>
-      <button type="button" class="btn btn-ghost btn-sm" data-close>Cancel</button>
-    </div>
-    <form action="/admin/apps" method="post" class="app-form">
-      {{if .Error}}<p class="form-error" role="alert">{{.Error}}</p>{{end}}
-
-      <div class="field">
-        <label for="app-name">App name</label>
-        <input id="app-name" type="text" name="name" required>
-      </div>
-
-      <div class="field">
-        <label for="app-description">Description</label>
-        <textarea id="app-description" name="description" rows="2" placeholder="What this app is for"></textarea>
-      </div>
-
-      <div class="field">
-        <label for="scopeinput">Allowed APIs and scopes</label>
-        <div class="chips" id="scopeedit">
-          <input id="scopeinput" class="chip-input" name="allowed_scopes" list="scopelist"
-                 placeholder="openid profile email" autocomplete="off">
-        </div>
-        <datalist id="scopelist">
-          <option value="openid"></option>
-          <option value="profile"></option>
-          <option value="email"></option>
-          <option value="offline_access"></option>
-        </datalist>
-        <p class="hint">The ceiling this app and all of its clients may request. Type a scope and press enter.</p>
-      </div>
-
-      <div class="formactions">
-        <button type="submit" class="btn btn-primary">Create application</button>
-      </div>
-    </form>
+    <a class="btn btn-primary" href="/admin/apps/new">
+      <span class="plus" aria-hidden="true"></span>Register app
+    </a>
   </div>
 
   {{if .Apps}}
@@ -78,7 +36,7 @@
         {{range .Apps}}
         <tr>
           <td>
-            <span class="cell-name">{{.Name}}</span>
+            <span class="cell-name"><a href="/admin/apps/{{.ID}}">{{.Name}}</a></span>
             {{if .Description}}<p class="cell-desc">{{.Description}}</p>{{end}}
           </td>
           <td>

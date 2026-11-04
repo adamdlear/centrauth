@@ -10,6 +10,7 @@ import (
 
 type ApplicationRepository interface {
 	Create(ctx context.Context, app *db.Application) (db.Application, error)
+	CreateWithClient(ctx context.Context, app *db.Application, client *db.OAuthClient) error
 	GetByID(ctx context.Context, id int64) (db.Application, error)
 	List(ctx context.Context) ([]db.Application, error)
 	Update(ctx context.Context, app *db.Application) (db.Application, error)
@@ -27,6 +28,18 @@ func NewGormApplicationRepo(db *gorm.DB) ApplicationRepository {
 func (r *gormApplicationRepo) Create(ctx context.Context, app *db.Application) (db.Application, error) {
 	err := gorm.G[db.Application](r.db).Create(ctx, app)
 	return *app, err
+}
+
+// CreateWithClient persists an app and its first client in one transaction, so
+// a validation or database failure leaves neither behind.
+func (r *gormApplicationRepo) CreateWithClient(ctx context.Context, app *db.Application, client *db.OAuthClient) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := gorm.G[db.Application](tx).Create(ctx, app); err != nil {
+			return err
+		}
+		client.ApplicationID = app.ID
+		return gorm.G[db.OAuthClient](tx).Create(ctx, client)
+	})
 }
 
 func (r *gormApplicationRepo) GetByID(ctx context.Context, id int64) (db.Application, error) {

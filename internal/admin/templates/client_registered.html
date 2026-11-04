@@ -1,0 +1,52 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<header class="topbar">
+  <span class="wordmark"><span class="mark"></span>centrauth</span>
+  <div class="topbar-id">
+    <span class="who">{{.Email}}</span>
+    <form action="/admin/auth/logout" method="post">
+      <button type="submit" class="btn btn-ghost btn-sm">Sign out</button>
+    </form>
+  </div>
+</header>
+
+<main class="page">
+  <p class="crumbs"><a href="/admin">dashboard</a> / <a href="/admin/apps">applications</a> / <a href="/admin/apps/{{.App.ID}}">{{.App.Name}}</a> / client registered</p>
+
+  <div class="pagehead">
+    <h1>Client registered</h1>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body">
+      <p>A new client was added to {{.App.Name}}. Store the credentials below now.</p>
+
+      <div class="well-head"><span class="well-label">Client ID</span></div>
+      <pre class="well">{{.Client.ClientID}}</pre>
+
+      {{if .ClientSecret}}
+      <div class="well-head"><span class="well-label">Client secret</span></div>
+      <pre class="well" id="client-secret">{{.ClientSecret}}</pre>
+      <p class="form-error" role="alert">This secret is shown once and cannot be retrieved later. Store it now.</p>
+      <p><button type="button" class="btn btn-ghost btn-sm" data-copy="#client-secret">Copy secret</button></p>
+      {{else}}
+      <p class="mono-muted">This is a public client: no secret was generated. It authenticates with PKCE.</p>
+      {{end}}
+
+      <div class="formactions">
+        <a href="/admin/apps/{{.App.ID}}" class="btn btn-primary">Back to application</a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  document.querySelectorAll("[data-copy]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var el = document.querySelector(btn.getAttribute("data-copy"));
+      if (el) navigator.clipboard.writeText(el.textContent);
+    });
+  });
+</script>
+{{end}}

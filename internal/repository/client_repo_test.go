@@ -296,3 +296,27 @@ func TestClientRepo_ListByApplicationID(t *testing.T) {
 		t.Errorf("ListByApplicationID(empty app) = %v, want no clients", clients)
 	}
 }
+
+func TestClientRepo_GetByID(t *testing.T) {
+	tx := newTestTx(t)
+	app := seedApplication(t, tx, db.Application{Name: "Client Repo Get By ID App"})
+	seeded := seedClient(t, tx, db.OAuthClient{
+		ApplicationID: app.ID,
+		ClientID:      "client-repo-get-by-id",
+		ClientType:    "public",
+		RedirectURIs:  pq.StringArray{"https://example.com/callback"},
+	})
+	repo := NewGormClientRepo(tx)
+
+	client, err := repo.GetByID(context.Background(), seeded.ID)
+	if err != nil {
+		t.Fatalf("GetByID() error = %v", err)
+	}
+	if client.ClientID != seeded.ClientID {
+		t.Errorf("ClientID = %q, want %q", client.ClientID, seeded.ClientID)
+	}
+
+	if _, err := repo.GetByID(context.Background(), seeded.ID+1_000_000); !errors.Is(err, ErrNotFound) {
+		t.Errorf("GetByID(nonexistent) error = %v, want ErrNotFound", err)
+	}
+}
