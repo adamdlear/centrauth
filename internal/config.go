@@ -12,11 +12,13 @@ import (
 )
 
 type ServerConfig struct {
-	Addr         string
-	IssuerURL    string
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
-	IdleTimeout  time.Duration
+	Addr           string
+	IssuerURL      string
+	SigningKeyPath string
+	IDTokenTTL     time.Duration
+	ReadTimeout    time.Duration
+	WriteTimeout   time.Duration
+	IdleTimeout    time.Duration
 }
 
 type AppConfig struct {
@@ -40,6 +42,19 @@ func LoadConfig() (AppConfig, error) {
 	parsedIssuer, err := url.Parse(issuerURL)
 	if err != nil {
 		return AppConfig{}, fmt.Errorf("invalid ISSUER_URL: %w", err)
+	}
+
+	signingKeyPath := os.Getenv("SIGNING_KEY_PATH")
+	if signingKeyPath == "" {
+		signingKeyPath = "./signing-key.pem"
+	}
+
+	idTokenTTL := 10 * time.Minute
+	if raw := os.Getenv("ID_TOKEN_TTL"); raw != "" {
+		idTokenTTL, err = time.ParseDuration(raw)
+		if err != nil {
+			return AppConfig{}, fmt.Errorf("invalid ID_TOKEN_TTL: %w", err)
+		}
 	}
 
 	cookieName := os.Getenv("SESSION_COOKIE_NAME")
@@ -75,11 +90,13 @@ func LoadConfig() (AppConfig, error) {
 
 	return AppConfig{
 		ServerConfig: ServerConfig{
-			Addr:         serverAddr,
-			IssuerURL:    issuerURL,
-			ReadTimeout:  10 * time.Second,
-			WriteTimeout: 15 * time.Second,
-			IdleTimeout:  60 * time.Second,
+			Addr:           serverAddr,
+			IssuerURL:      issuerURL,
+			SigningKeyPath: signingKeyPath,
+			IDTokenTTL:     idTokenTTL,
+			ReadTimeout:    10 * time.Second,
+			WriteTimeout:   15 * time.Second,
+			IdleTimeout:    60 * time.Second,
 		},
 		DBConfig: db.DBConfig{
 			Host:     os.Getenv("DB_HOST"),

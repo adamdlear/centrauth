@@ -28,7 +28,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	app := internal.NewApp(cfg, database)
+	app, err := internal.NewApp(cfg, database)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	if err := app.Run(ctx); err != nil {
 		log.Fatal(err)

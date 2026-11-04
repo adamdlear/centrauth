@@ -5,3 +5,4 @@ coverage.out
 .DS_Store
 *.swp
 /tmp/
+signing-key.pem

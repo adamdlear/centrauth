@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -14,30 +15,35 @@ import (
 	"github.com/adamdlear/centrauth/internal/admin/templates"
 	"github.com/adamdlear/centrauth/internal/db"
 	"github.com/adamdlear/centrauth/internal/middleware"
+	"github.com/adamdlear/centrauth/internal/oidc"
 	"github.com/adamdlear/centrauth/internal/repository"
 	"github.com/adamdlear/centrauth/internal/service"
 	"github.com/adamdlear/centrauth/internal/session"
+	"github.com/adamdlear/centrauth/internal/signing"
 )
 
 type App struct {
-	logger              *slog.Logger
-	server              *http.Server
-	db                  *db.DB
-	templates           *templates.Templates
-	operatorLogin       *service.OperatorLoginService
-	sessions            *session.Manager
-	operatorSessions    *session.OperatorManager
-	users               repository.UserRepository
-	operators           repository.OperatorRepository
-	admin               *admin.Handler
+	logger           *slog.Logger
+	server           *http.Server
+	db               *db.DB
+	templates        *templates.Templates
+	operatorLogin    *service.OperatorLoginService
+	sessions         *session.Manager
+	operatorSessions *session.OperatorManager
+	users            repository.UserRepository
+	operators        repository.OperatorRepository
+	admin            *admin.Handler
+	keyManager       *signing.KeyManager
+	discovery        oidc.DiscoveryConfig
+	idTokens         *oidc.IDTokenIssuer
 }
 
 //go:embed static/*
 var staticFiles embed.FS
 
-func NewApp(cfg AppConfig, database *db.DB) *App {
+func NewApp(cfg AppConfig, database *db.DB) (*App, error) {
 	if database == nil {
-		panic("centrauth: NewApp requires a non-nil database")
+		return nil, errors.New("centrauth: NewApp requires a non-nil database")
 	}
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -49,20 +55,28 @@ func NewApp(cfg AppConfig, database *db.DB) *App {
 	operatorRepo := repository.NewGormOperatorRepo(database.Client)
 	operatorSessionRepo := repository.NewGormOperatorSessionRepo(database.Client)
 
+	keyManager, err := signing.NewKeyManager(cfg.ServerConfig.SigningKeyPath)
+	if err != nil {
+		return nil, fmt.Errorf("initialize signing key: %w", err)
+	}
+
 	tpl := templates.New()
 	operatorLogin := service.NewOperatorLoginService(logger, operatorRepo)
 	operatorSessions := session.NewOperatorManager(operatorSessionRepo, cfg.OperatorSessionConfig)
 
 	a := &App{
-		logger:              slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
-		db:                  database,
-		templates:           tpl,
-		operatorLogin:       operatorLogin,
-		sessions:            session.NewManager(sessionRepo, cfg.SessionConfig),
-		operatorSessions:    operatorSessions,
-		users:               userRepo,
-		operators:           operatorRepo,
-		admin:               admin.NewHandler(logger, tpl, applicationRepo, clientRepo, operatorLogin, operatorSessions),
+		logger:           slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
+		db:               database,
+		templates:        tpl,
+		operatorLogin:    operatorLogin,
+		sessions:         session.NewManager(sessionRepo, cfg.SessionConfig),
+		operatorSessions: operatorSessions,
+		users:            userRepo,
+		operators:        operatorRepo,
+		admin:            admin.NewHandler(logger, tpl, applicationRepo, clientRepo, operatorLogin, operatorSessions),
+		keyManager:       keyManager,
+		discovery:        oidc.NewDiscoveryConfig(cfg.ServerConfig.IssuerURL),
+		idTokens:         oidc.NewIDTokenIssuer(keyManager, cfg.ServerConfig.IssuerURL, cfg.ServerConfig.IDTokenTTL),
 	}
 
 	a.server = &http.Server{
@@ -73,7 +87,7 @@ func NewApp(cfg AppConfig, database *db.DB) *App {
 		IdleTimeout:  cfg.ServerConfig.IdleTimeout,
 	}
 
-	return a
+	return a, nil
 }
 
 func (a *App) routes() http.Handler {
@@ -83,6 +97,8 @@ func (a *App) routes() http.Handler {
 	fileServer := http.FileServer(http.FS(staticFS))
 
 	mux.HandleFunc("GET /healthz", a.healthHandler)
+	mux.HandleFunc("GET /.well-known/jwks.json", a.jwksHandler)
+	mux.HandleFunc("GET /.well-known/openid-configuration", a.discoveryHandler)
 	mux.HandleFunc("GET /", a.rootHandler)
 	mux.HandleFunc("GET /setup", a.setupPageHandler)
 	mux.HandleFunc("POST /setup", a.setupHandler)
