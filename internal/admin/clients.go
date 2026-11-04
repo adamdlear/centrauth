@@ -42,11 +42,12 @@ type envView struct {
 }
 
 type appDetailPageData struct {
-	Title   string
-	Email   string
-	App     appView
-	Clients []clientView
-	Envs    []envView
+	Title     string
+	Email     string
+	App       appView
+	Clients   []clientView
+	Providers []providerView
+	Envs      []envView
 }
 
 type clientNewPageData struct {
@@ -97,7 +98,15 @@ func (h *Handler) appDetailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	providers, err := h.providers.List(ctx, app.ID)
+	if err != nil {
+		h.logger.Error("failed to load identity providers", "application_id", app.ID, "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
 	data := buildAppDetailPageData(app, clients)
+	data.Providers = providerViews(providers)
 	data.Email = operator.Email
 	h.render(w, "clients.html", data)
 }

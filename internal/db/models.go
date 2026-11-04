@@ -62,6 +62,36 @@ type Application struct {
 
 func (Application) TableName() string { return "applications" }
 
+// IdentityProvider is an upstream provider configured for an app. The client
+// secret is stored encrypted; plaintext never touches the database.
+type IdentityProvider struct {
+	ID                    int64     `gorm:"primaryKey;autoIncrement"`
+	ApplicationID         int64     `gorm:"column:application_id;not null;index"`
+	Provider              string    `gorm:"column:provider;not null"`
+	ClientID              string    `gorm:"column:client_id;not null"`
+	ClientSecretEncrypted []byte    `gorm:"column:client_secret_encrypted;not null"`
+	Enabled               bool      `gorm:"column:enabled;not null"`
+	CreatedAt             time.Time `gorm:"not null"`
+	UpdatedAt             time.Time `gorm:"not null"`
+}
+
+func (IdentityProvider) TableName() string { return "identity_providers" }
+
+// UserIdentity links a local user to an upstream provider identity.
+type UserIdentity struct {
+	ID              int64     `gorm:"primaryKey;autoIncrement"`
+	UserID          int64     `gorm:"column:user_id;not null;index"`
+	Provider        string    `gorm:"column:provider;not null"`
+	ProviderSubject string    `gorm:"column:provider_subject;not null"`
+	Email           string    `gorm:"column:email;not null;default:''"`
+	EmailVerified   bool      `gorm:"column:email_verified;not null;default:false"`
+	Name            string    `gorm:"column:name;not null;default:''"`
+	CreatedAt       time.Time `gorm:"not null"`
+	UpdatedAt       time.Time `gorm:"not null"`
+}
+
+func (UserIdentity) TableName() string { return "user_identities" }
+
 type OAuthClient struct {
 	ID                      int64          `gorm:"primaryKey;autoIncrement"`
 	ApplicationID           int64          `gorm:"column:application_id;not null;index"`

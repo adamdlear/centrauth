@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -26,10 +27,16 @@ type authorizeErrorPageData struct {
 	Message string
 }
 
+type authorizeProviderButton struct {
+	Name  string
+	Label string
+}
+
 type authorizePromptPageData struct {
-	Title    string
-	AppName  string
-	ClientID string
+	Title     string
+	AppName   string
+	ClientID  string
+	Providers []authorizeProviderButton
 }
 
 func (a *App) authorizeHandler(w http.ResponseWriter, r *http.Request) {
@@ -84,11 +91,19 @@ func (a *App) authorizeHandler(w http.ResponseWriter, r *http.Request) {
 
 	user := middleware.UserFromContext(ctx)
 	if user == nil {
+		providers, err := a.promptsForApp(ctx, app.ID)
+		if err != nil {
+			a.logger.Error("authorize: failed to load providers", "application_id", app.ID, "error", err)
+			a.renderAuthorizeError(w, http.StatusInternalServerError, "server_error", "Unable to load sign-in methods")
+			return
+		}
+
 		a.storeAuthorizeRequest(w, r)
 		a.renderPage(w, http.StatusOK, "authorize_prompt.html", authorizePromptPageData{
-			Title:    "Continue to " + app.Name,
-			AppName:  app.Name,
-			ClientID: client.ClientID,
+			Title:     "Continue to " + app.Name,
+			AppName:   app.Name,
+			ClientID:  client.ClientID,
+			Providers: providers,
 		})
 		return
 	}
@@ -151,6 +166,36 @@ func (a *App) redirectAuthorizeError(w http.ResponseWriter, r *http.Request, req
 	}
 	redirectURL.RawQuery = query.Encode()
 	http.Redirect(w, r, redirectURL.String(), http.StatusFound)
+}
+
+func (a *App) promptsForApp(ctx context.Context, applicationID int64) ([]authorizeProviderButton, error) {
+	records, err := a.providers.List(ctx, applicationID)
+	if err != nil {
+		return nil, err
+	}
+
+	buttons := make([]authorizeProviderButton, 0, len(records))
+	for _, record := range records {
+		if !record.Enabled {
+			continue
+		}
+		buttons = append(buttons, authorizeProviderButton{
+			Name:  record.Provider,
+			Label: providerLabel(record.Provider),
+		})
+	}
+	return buttons, nil
+}
+
+func providerLabel(provider string) string {
+	switch provider {
+	case "google":
+		return "Continue with Google"
+	case "github":
+		return "Continue with GitHub"
+	default:
+		return "Continue with " + provider
+	}
 }
 
 func (a *App) storeAuthorizeRequest(w http.ResponseWriter, r *http.Request) {

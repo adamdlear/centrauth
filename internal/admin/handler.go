@@ -17,17 +17,19 @@ type Handler struct {
 	applications repository.ApplicationRepository
 	clients      repository.ClientRepository
 	apps         *service.AppService
+	providers    *service.ProviderService
 	operatorAuth *service.OperatorLoginService
 	sessions     *session.OperatorManager
 }
 
-func NewHandler(logger *slog.Logger, tpl *templates.Templates, applications repository.ApplicationRepository, clients repository.ClientRepository, apps *service.AppService, operatorAuth *service.OperatorLoginService, sessions *session.OperatorManager) *Handler {
+func NewHandler(logger *slog.Logger, tpl *templates.Templates, applications repository.ApplicationRepository, clients repository.ClientRepository, apps *service.AppService, providers *service.ProviderService, operatorAuth *service.OperatorLoginService, sessions *session.OperatorManager) *Handler {
 	return &Handler{
 		logger:       logger,
 		templates:    tpl,
 		applications: applications,
 		clients:      clients,
 		apps:         apps,
+		providers:    providers,
 		operatorAuth: operatorAuth,
 		sessions:     sessions,
 	}
@@ -47,4 +49,9 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.Handle("GET /admin/apps/{id}/clients/new", middleware.RequireOperator(http.HandlerFunc(h.clientNewHandler)))
 	mux.Handle("POST /admin/apps/{id}/clients", middleware.RequireOperator(http.HandlerFunc(h.clientCreateHandler)))
 	mux.Handle("GET /admin/clients/{id}", middleware.RequireOperator(http.HandlerFunc(h.clientDetailHandler)))
+	mux.Handle("GET /admin/apps/{id}/providers/new", middleware.RequireOperator(http.HandlerFunc(h.providerNewHandler)))
+	mux.Handle("POST /admin/apps/{id}/providers", middleware.RequireOperator(http.HandlerFunc(h.providerSaveHandler)))
+	mux.Handle("GET /admin/apps/{id}/providers/{provider}/edit", middleware.RequireOperator(http.HandlerFunc(h.providerEditHandler)))
+	mux.Handle("POST /admin/apps/{id}/providers/{provider}/toggle", middleware.RequireOperator(http.HandlerFunc(h.providerToggleHandler)))
+	mux.Handle("POST /admin/apps/{id}/providers/{provider}/delete", middleware.RequireOperator(http.HandlerFunc(h.providerDeleteHandler)))
 }

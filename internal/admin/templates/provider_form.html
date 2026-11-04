@@ -1,0 +1,67 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<header class="topbar">
+  <span class="wordmark"><span class="mark"></span>centrauth</span>
+  <div class="topbar-id">
+    <span class="who">{{.Email}}</span>
+    <form action="/admin/auth/logout" method="post">
+      <button type="submit" class="btn btn-ghost btn-sm">Sign out</button>
+    </form>
+  </div>
+</header>
+
+<main class="page">
+  <p class="crumbs"><a href="/admin">dashboard</a> / <a href="/admin/apps">applications</a> / <a href="/admin/apps/{{.App.ID}}">{{.App.Name}}</a> / provider</p>
+
+  <div class="pagehead">
+    <h1>{{if .IsEdit}}Edit provider{{else}}Add identity provider{{end}}</h1>
+    <span class="count">for {{.App.Name}}</span>
+  </div>
+
+  <div class="panel">
+    <form action="/admin/apps/{{.App.ID}}/providers" method="post" class="app-form">
+      {{if .Error}}<p class="form-error" role="alert">{{.Error}}</p>{{end}}
+      {{if .IsEdit}}<input type="hidden" name="is_edit" value="true">{{end}}
+
+      <div class="field">
+        <label for="provider-name">Provider</label>
+        {{if .IsEdit}}
+        <input id="provider-name" type="text" value="{{.Provider}}" readonly>
+        <input type="hidden" name="provider" value="{{.Provider}}">
+        {{else}}
+        <select id="provider-name" name="provider">
+          {{range .Providers}}<option value="{{.}}" {{if eq . $.Provider}}selected{{end}}>{{.}}</option>{{end}}
+        </select>
+        {{end}}
+        {{with index .Errors "provider"}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+      </div>
+
+      <div class="field">
+        <label for="provider-client-id">Client ID</label>
+        <input id="provider-client-id" type="text" name="client_id" class="input-mono" value="{{.ClientID}}" required>
+        <p class="hint">The OAuth client ID issued by the provider for this app.</p>
+        {{with index .Errors "client_id"}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+      </div>
+
+      <div class="field">
+        <label for="provider-client-secret">Client secret</label>
+        <input id="provider-client-secret" type="password" name="client_secret" class="input-mono"
+               autocomplete="new-password" {{if not .SecretIsSet}}required{{end}}>
+        <p class="hint">{{if .SecretIsSet}}A secret is already stored. Leave blank to keep it, or enter a new value to rotate it.{{else}}Stored encrypted at rest and never shown again.{{end}}</p>
+        {{with index .Errors "client_secret"}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+      </div>
+
+      <div class="field">
+        <label><input type="checkbox" name="enabled" {{if .Enabled}}checked{{end}}> Enabled</label>
+        <p class="hint">Disabled providers are hidden from the sign-in prompt.</p>
+      </div>
+
+      <div class="formactions">
+        <a href="/admin/apps/{{.App.ID}}" class="btn btn-ghost btn-sm">Cancel</a>
+        <button type="submit" class="btn btn-primary">Save provider</button>
+      </div>
+    </form>
+  </div>
+</main>
+{{end}}

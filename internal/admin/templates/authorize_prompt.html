@@ -15,10 +15,18 @@
         <p class="appctx-name">{{.AppName}}</p>
       </div>
 
+      {{if .Providers}}
+      <div class="providers">
+        {{range .Providers}}
+        <a class="btn btn-provider" href="/auth/upstream/{{.Name}}/start">{{.Label}}</a>
+        {{end}}
+      </div>
+      {{else}}
       <div class="alert" role="alert">
         No sign-in method is configured for this app. Ask its owner to enable an identity provider.
       </div>
       <p class="hint">The authorization request has been preserved and will resume once this app has a sign-in method.</p>
+      {{end}}
     </div>
 
     <footer class="authfoot">

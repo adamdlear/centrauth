@@ -98,6 +98,51 @@
         {{end}}
       </div>
 
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Identity providers</h2>
+          <span class="panel-count">{{len .Providers}}</span>
+          <span class="spacer"></span>
+          <a class="btn btn-ghost btn-sm" href="/admin/apps/{{.App.ID}}/providers/new">
+            <span class="plus" aria-hidden="true"></span>Add provider
+          </a>
+        </div>
+
+        {{if .Providers}}
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th scope="col">Provider</th>
+              <th scope="col">Client ID</th>
+              <th scope="col">Status</th>
+              <th scope="col"><span class="visually-hidden">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .Providers}}
+            <tr>
+              <td><span class="chip">{{.Provider}}</span></td>
+              <td class="mono">{{.ClientID}}</td>
+              <td>{{if .Enabled}}<span class="chip chip-solid">enabled</span>{{else}}<span class="chip">disabled</span>{{end}}</td>
+              <td class="provider-actions">
+                <a class="btn btn-ghost btn-xs" href="/admin/apps/{{$.App.ID}}/providers/{{.Provider}}/edit">Edit</a>
+                <form action="/admin/apps/{{$.App.ID}}/providers/{{.Provider}}/toggle" method="post">
+                  <button type="submit" class="btn btn-ghost btn-xs">{{if .Enabled}}Disable{{else}}Enable{{end}}</button>
+                </form>
+                <form action="/admin/apps/{{$.App.ID}}/providers/{{.Provider}}/delete" method="post">
+                  <button type="submit" class="btn btn-danger btn-xs">Remove</button>
+                </form>
+              </td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+        {{else}}
+        <div class="panel-body">
+          <p class="mono-muted">No identity providers configured. Application users cannot sign in until at least one provider is enabled.</p>
+        </div>
+        {{end}}
+      </div>
     </div>
 
     <aside class="rail">

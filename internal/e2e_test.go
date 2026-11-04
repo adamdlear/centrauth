@@ -23,8 +23,11 @@ import (
 	"github.com/adamdlear/centrauth/internal/repository"
 	"github.com/adamdlear/centrauth/internal/service"
 	"github.com/adamdlear/centrauth/internal/session"
+	"github.com/adamdlear/centrauth/internal/signing"
+	"github.com/adamdlear/centrauth/internal/upstream"
 	oidcclient "github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
+	"net/http/cookiejar"
 )
 
 const e2eVerifier = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG-e2e"
@@ -595,5 +598,249 @@ func TestE2EUnknownCode(t *testing.T) {
 	var retrieveErr *oauth2.RetrieveError
 	if errors.As(err, &retrieveErr) && retrieveErr.ErrorCode != "invalid_grant" {
 		t.Errorf("error = %q, want invalid_grant", retrieveErr.ErrorCode)
+	}
+}
+
+func TestE2EBrokeredGoogleSignIn(t *testing.T) {
+	env := newE2EEnv(t)
+
+	// A fake Google: discovery, JWKS, and a token endpoint that returns a
+	// signed ID token for a fixed upstream identity.
+	upstreamKey, err := signing.NewKeyManager(t.TempDir() + "/upstream-key.pem")
+	if err != nil {
+		t.Fatalf("upstream key: %v", err)
+	}
+
+	var fakeURL string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"issuer":                                fakeURL,
+			"authorization_endpoint":                fakeURL + "/auth",
+			"token_endpoint":                        fakeURL + "/token",
+			"jwks_uri":                              fakeURL + "/jwks",
+			"response_types_supported":              []string{"code"},
+			"subject_types_supported":               []string{"public"},
+			"id_token_signing_alg_values_supported": []string{"RS256"},
+		})
+	})
+	mux.HandleFunc("/jwks", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(upstreamKey.JWKS())
+	})
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		if r.FormValue("code") != "good-code" {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid_grant"})
+			return
+		}
+		now := time.Now()
+		claims := map[string]any{
+			"iss": fakeURL, "sub": "broker-subject", "aud": "fake-google-client",
+			"exp": now.Add(time.Minute).Unix(), "iat": now.Unix(),
+			"email": "broker@example.com", "email_verified": true, "name": "Broker User",
+		}
+		payload, _ := json.Marshal(claims)
+		signer, _ := upstreamKey.Signer()
+		object, _ := signer.Sign(payload)
+		idToken, _ := object.CompactSerialize()
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"access_token": "upstream-token",
+			"id_token":     idToken,
+		})
+	})
+	fakeServer := httptest.NewServer(mux)
+	defer fakeServer.Close()
+	fakeURL = fakeServer.URL
+
+	env.app.providerFactory = func(name, clientID, clientSecret, redirectURL string) (upstream.Config, error) {
+		return upstream.Config{
+			Name:         name,
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			RedirectURL:  redirectURL,
+			AuthURL:      fakeURL + "/auth",
+			TokenURL:     fakeURL + "/token",
+			Issuer:       fakeURL,
+			Scopes:       []string{"openid", "email", "profile"},
+			UsePKCE:      true,
+			OIDC:         true,
+		}, nil
+	}
+
+	if err := env.app.providers.Upsert(context.Background(), env.appModel.ID, service.ProviderInput{
+		Provider:     "google",
+		ClientID:     "fake-google-client",
+		ClientSecret: "fake-google-secret",
+		Enabled:      true,
+	}); err != nil {
+		t.Fatalf("configure provider: %v", err)
+	}
+
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatalf("cookie jar: %v", err)
+	}
+	browser := &http.Client{
+		Jar: jar,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	params := defaultAuthorizeParams(env)
+	params.Scope = "openid profile email"
+	params.WithSession = false
+
+	// 1. The unsigned-in prompt offers the configured provider.
+	authResp := env.authorizeWith(t, browser, params)
+	if authResp.StatusCode != http.StatusOK {
+		t.Fatalf("prompt status = %d, want 200", authResp.StatusCode)
+	}
+	body, _ := io.ReadAll(authResp.Body)
+	authResp.Body.Close()
+	if !strings.Contains(string(body), "Continue with Google") {
+		t.Fatalf("prompt missing provider button: %s", body)
+	}
+
+	// 2. Starting sign-in redirects to the upstream provider with state + PKCE.
+	startResp, err := browser.Get(env.server.URL + "/auth/upstream/google/start")
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	defer startResp.Body.Close()
+	if startResp.StatusCode != http.StatusFound {
+		body, _ := io.ReadAll(startResp.Body)
+		t.Fatalf("start status = %d, want 302: %s", startResp.StatusCode, body)
+	}
+	upstreamAuthURL, err := url.Parse(startResp.Header.Get("Location"))
+	if err != nil || upstreamAuthURL.Host != strings.TrimPrefix(fakeURL, "http://") {
+		t.Fatalf("upstream redirect = %q, err = %v", startResp.Header.Get("Location"), err)
+	}
+	if upstreamAuthURL.Query().Get("code_challenge") == "" {
+		t.Error("upstream authorization request missing PKCE challenge")
+	}
+	state := upstreamAuthURL.Query().Get("state")
+	if state == "" {
+		t.Fatal("upstream authorization request missing state")
+	}
+
+	// 3. The provider calls back with an authorization code.
+	callbackResp, err := browser.Get(env.server.URL + "/auth/upstream/google/callback?code=good-code&state=" + url.QueryEscape(state))
+	if err != nil {
+		t.Fatalf("callback: %v", err)
+	}
+	defer callbackResp.Body.Close()
+	if callbackResp.StatusCode != http.StatusSeeOther {
+		body, _ := io.ReadAll(callbackResp.Body)
+		t.Fatalf("callback status = %d, want 303: %s", callbackResp.StatusCode, body)
+	}
+	returnTo := callbackResp.Header.Get("Location")
+	if !strings.HasPrefix(returnTo, "/authorize?") {
+		t.Fatalf("callback return target = %q", returnTo)
+	}
+
+	// 4. The original authorization request resumes with the new session.
+	resumeResp, err := browser.Get(env.server.URL + returnTo)
+	if err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	defer resumeResp.Body.Close()
+	if resumeResp.StatusCode != http.StatusFound {
+		body, _ := io.ReadAll(resumeResp.Body)
+		t.Fatalf("resume status = %d, want 302: %s", resumeResp.StatusCode, body)
+	}
+	appRedirect, _ := url.Parse(resumeResp.Header.Get("Location"))
+	code := appRedirect.Query().Get("code")
+	if code == "" {
+		t.Fatal("resumed authorization request did not issue a code")
+	}
+
+	// 5. Exchange the code and verify the provisioned identity.
+	token, err := env.oauthConfig(env.clientSecret).Exchange(
+		context.Background(), code, oauth2.SetAuthURLParam("code_verifier", e2eVerifier),
+	)
+	if err != nil {
+		t.Fatalf("token exchange after brokered sign-in: %v", err)
+	}
+	rawIDToken := token.Extra("id_token").(string)
+	verifier := env.provider.Verifier(&oidcclient.Config{ClientID: env.client.ClientID})
+	idToken, err := verifier.Verify(context.Background(), rawIDToken)
+	if err != nil {
+		t.Fatalf("verify brokered ID token: %v", err)
+	}
+	firstSubject := idToken.Subject
+	if firstSubject == "" {
+		t.Fatal("brokered ID token has an empty subject")
+	}
+	var claims map[string]any
+	_ = idToken.Claims(&claims)
+	if claims["email"] != "broker@example.com" {
+		t.Errorf("email claim = %v, want broker@example.com", claims["email"])
+	}
+
+	// 6. A second sign-in reuses the same user rather than creating another.
+	resp2 := env.authorizeWith(t, browser, defaultAuthorizeParams(env))
+	defer resp2.Body.Close()
+	if resp2.StatusCode != http.StatusFound {
+		t.Fatalf("second authorize status = %d, want 302 (session should persist)", resp2.StatusCode)
+	}
+	secondRedirect, _ := url.Parse(resp2.Header.Get("Location"))
+	secondCode := secondRedirect.Query().Get("code")
+	if secondCode == "" {
+		t.Fatal("second authorization missing code")
+	}
+	token2, err := env.oauthConfig(env.clientSecret).Exchange(
+		context.Background(), secondCode, oauth2.SetAuthURLParam("code_verifier", e2eVerifier),
+	)
+	if err != nil {
+		t.Fatalf("second token exchange: %v", err)
+	}
+	idToken2, err := verifier.Verify(context.Background(), token2.Extra("id_token").(string))
+	if err != nil {
+		t.Fatalf("verify second ID token: %v", err)
+	}
+	if idToken2.Subject != firstSubject {
+		t.Errorf("second sign-in subject = %q, want %q", idToken2.Subject, firstSubject)
+	}
+
+	var users int64
+	env.database.Client.Raw("SELECT count(*) FROM users WHERE email = ?", "broker@example.com").Scan(&users)
+	if users != 1 {
+		t.Errorf("users with brokered email = %d, want 1", users)
+	}
+}
+
+func TestE2EConcurrentCodeExchange(t *testing.T) {
+	env := newE2EEnv(t)
+	code := env.issueCode(t, defaultAuthorizeParams(env))
+
+	type result struct {
+		err error
+	}
+	results := make(chan result, 2)
+	for i := 0; i < 2; i++ {
+		go func() {
+			_, err := env.oauthConfig(env.clientSecret).Exchange(
+				context.Background(),
+				code,
+				oauth2.SetAuthURLParam("code_verifier", e2eVerifier),
+			)
+			results <- result{err: err}
+		}()
+	}
+
+	successes := 0
+	failures := 0
+	for i := 0; i < 2; i++ {
+		if r := <-results; r.err == nil {
+			successes++
+		} else {
+			failures++
+		}
+	}
+	if successes != 1 || failures != 1 {
+		t.Errorf("concurrent exchange successes/failures = %d/%d, want 1/1", successes, failures)
 	}
 }

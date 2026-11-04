@@ -21,6 +21,7 @@ import (
 	"github.com/adamdlear/centrauth/internal/service"
 	"github.com/adamdlear/centrauth/internal/session"
 	"github.com/adamdlear/centrauth/internal/signing"
+	"github.com/adamdlear/centrauth/internal/upstream"
 )
 
 type App struct {
@@ -36,11 +37,14 @@ type App struct {
 	applications     repository.ApplicationRepository
 	clients          repository.ClientRepository
 	admin            *admin.Handler
-	codes            repository.CodeRepository
-	secrets          *secrets.Box
 	keyManager       *signing.KeyManager
 	discovery        oidc.DiscoveryConfig
 	idTokens         *oidc.IDTokenIssuer
+	codes            repository.CodeRepository
+	secrets          *secrets.Box
+	providers        *service.ProviderService
+	providerRepo     repository.IdentityProviderRepository
+	providerFactory  func(name, clientID, clientSecret, redirectURL string) (upstream.Config, error)
 }
 
 //go:embed static/*
@@ -60,6 +64,8 @@ func NewApp(cfg AppConfig, database *db.DB) (*App, error) {
 	operatorRepo := repository.NewGormOperatorRepo(database.Client)
 	operatorSessionRepo := repository.NewGormOperatorSessionRepo(database.Client)
 	codeRepo := repository.NewGormCodeRepo(database.Client)
+	providerRepo := repository.NewGormIdentityProviderRepo(database.Client)
+	identityRepo := repository.NewGormUserIdentityRepo(database.Client)
 
 	keyManager, err := signing.NewKeyManager(cfg.ServerConfig.SigningKeyPath)
 	if err != nil {
@@ -69,6 +75,7 @@ func NewApp(cfg AppConfig, database *db.DB) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("initialize provider secret key: %w", err)
 	}
+	providerService := service.NewProviderService(providerRepo, userRepo, identityRepo, secretBox)
 
 	tpl := templates.New()
 	operatorLogin := service.NewOperatorLoginService(logger, operatorRepo)
@@ -85,12 +92,15 @@ func NewApp(cfg AppConfig, database *db.DB) (*App, error) {
 		operators:        operatorRepo,
 		applications:     applicationRepo,
 		clients:          clientRepo,
-		admin:            admin.NewHandler(logger, tpl, applicationRepo, clientRepo, service.NewAppService(applicationRepo, clientRepo), operatorLogin, operatorSessions),
+		admin:            admin.NewHandler(logger, tpl, applicationRepo, clientRepo, service.NewAppService(applicationRepo, clientRepo), providerService, operatorLogin, operatorSessions),
 		keyManager:       keyManager,
 		discovery:        oidc.NewDiscoveryConfig(cfg.ServerConfig.IssuerURL),
 		idTokens:         oidc.NewIDTokenIssuer(keyManager, cfg.ServerConfig.IssuerURL, cfg.ServerConfig.IDTokenTTL),
 		codes:            codeRepo,
 		secrets:          secretBox,
+		providers:        providerService,
+		providerRepo:     providerRepo,
+		providerFactory:  upstream.ConfigFor,
 	}
 
 	a.server = &http.Server{
@@ -114,6 +124,8 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /.well-known/jwks.json", a.jwksHandler)
 	mux.HandleFunc("GET /.well-known/openid-configuration", a.discoveryHandler)
 	mux.HandleFunc("GET /authorize", a.authorizeHandler)
+	mux.HandleFunc("GET /auth/upstream/{provider}/start", a.upstreamStartHandler)
+	mux.HandleFunc("GET /auth/upstream/{provider}/callback", a.upstreamCallbackHandler)
 	mux.HandleFunc("POST /token", a.tokenHandler)
 	mux.HandleFunc("GET /", a.rootHandler)
 	mux.HandleFunc("GET /setup", a.setupPageHandler)

@@ -8,6 +8,7 @@ import (
 )
 
 type dashboardAppView struct {
+	ID          int64
 	Name        string
 	Description string
 	Scopes      []string
@@ -63,6 +64,7 @@ func (h *Handler) dashboardData(ctx context.Context) (dashboardPageData, error) 
 			created = app.CreatedAt.Format("2006-01-02")
 		}
 		views = append(views, dashboardAppView{
+			ID:          app.ID,
 			Name:        app.Name,
 			Description: app.Description,
 			Scopes:      []string(app.AllowedScopes),
