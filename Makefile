@@ -17,6 +17,10 @@ test:
 	@echo "Running unit tests..."
 	go test -v -race -covermode=atomic -coverprofile=coverage.out ./...
 
+test-e2e:
+	@echo "Running end-to-end OIDC tests..."
+	go test -v -race -run 'TestCompleteOIDC|TestE2E' ./internal/
+
 fmt:
 	@echo "Formatting code..."
 	go fmt ./...
