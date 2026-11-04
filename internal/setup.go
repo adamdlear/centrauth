@@ -101,7 +101,7 @@ func (a *App) setupAvailable(w http.ResponseWriter, r *http.Request) bool {
 
 func (a *App) renderSetup(w http.ResponseWriter, data setupPageData) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := a.templates.Setup.ExecuteTemplate(w, "setup.html", data); err != nil {
+	if err := a.templates.Get("setup.html").ExecuteTemplate(w, "setup.html", data); err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 	}
 }

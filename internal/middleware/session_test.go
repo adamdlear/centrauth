@@ -89,11 +89,6 @@ func (f *fakeUserRepo) Create(_ context.Context, u *db.User) (db.User, error) {
 	return *u, nil
 }
 
-func (f *fakeUserRepo) CreateWithCredential(_ context.Context, u *db.User, c *db.UserCredential) (db.User, error) {
-	c.UserID = u.ID
-	return *u, nil
-}
-
 func TestSessionMiddleware(t *testing.T) {
 	sessions := &fakeSessionRepo{}
 	users := &fakeUserRepo{byID: map[int64]db.User{
@@ -187,49 +182,5 @@ func TestSessionMiddleware(t *testing.T) {
 				t.Errorf("user email = %q, want %q", got.Email, "user7@example.com")
 			}
 		})
-	}
-}
-
-func TestRequireAuthRedirectsAnonymous(t *testing.T) {
-	called := false
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		called = true
-	})
-
-	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
-	rec := httptest.NewRecorder()
-
-	RequireAuth(next).ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusSeeOther {
-		t.Errorf("status = %d, want %d", rec.Code, http.StatusSeeOther)
-	}
-	if loc := rec.Header().Get("Location"); loc != "/login" {
-		t.Errorf("Location = %q, want %q", loc, "/login")
-	}
-	if called {
-		t.Error("next handler was called for an anonymous request")
-	}
-}
-
-func TestRequireAuthAllowsAuthenticated(t *testing.T) {
-	called := false
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		called = true
-		w.WriteHeader(http.StatusOK)
-	})
-
-	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
-	ctx := context.WithValue(req.Context(), userKey, &db.User{ID: 7})
-	req = req.WithContext(ctx)
-	rec := httptest.NewRecorder()
-
-	RequireAuth(next).ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
-	}
-	if !called {
-		t.Error("next handler was not called for an authenticated request")
 	}
 }

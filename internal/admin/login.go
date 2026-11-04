@@ -70,7 +70,7 @@ func (h *Handler) operatorLogoutHandler(w http.ResponseWriter, r *http.Request) 
 
 func (h *Handler) renderOperatorLogin(w http.ResponseWriter, data operatorLoginPageData) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := h.templates.OperatorLogin.ExecuteTemplate(w, "operator_login.html", data); err != nil {
+	if err := h.templates.Get("operator_login.html").ExecuteTemplate(w, "operator_login.html", data); err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 	}
 }

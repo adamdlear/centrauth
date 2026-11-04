@@ -10,6 +10,8 @@ import (
 	"github.com/adamdlear/centrauth/internal/repository"
 )
 
+var ErrInvalidCredentials = errors.New("invalid credentials")
+
 type OperatorLoginService struct {
 	logger    *slog.Logger
 	operators repository.OperatorRepository

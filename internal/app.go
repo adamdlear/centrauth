@@ -24,14 +24,12 @@ type App struct {
 	server              *http.Server
 	db                  *db.DB
 	templates           *templates.Templates
-	login               *service.LoginService
 	operatorLogin       *service.OperatorLoginService
 	sessions            *session.Manager
 	operatorSessions    *session.OperatorManager
 	users               repository.UserRepository
 	operators           repository.OperatorRepository
 	admin               *admin.Handler
-	registrationEnabled bool
 }
 
 //go:embed static/*
@@ -45,7 +43,6 @@ func NewApp(cfg AppConfig, database *db.DB) *App {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	userRepo := repository.NewGormUserRepo(database.Client)
-	credRepo := repository.NewGormCredentialRepo(database.Client)
 	sessionRepo := repository.NewGormSessionRepo(database.Client)
 	clientRepo := repository.NewGormClientRepo(database.Client)
 	applicationRepo := repository.NewGormApplicationRepo(database.Client)
@@ -60,14 +57,12 @@ func NewApp(cfg AppConfig, database *db.DB) *App {
 		logger:              slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
 		db:                  database,
 		templates:           tpl,
-		login:               service.NewLoginService(logger, userRepo, credRepo),
 		operatorLogin:       operatorLogin,
 		sessions:            session.NewManager(sessionRepo, cfg.SessionConfig),
 		operatorSessions:    operatorSessions,
 		users:               userRepo,
 		operators:           operatorRepo,
 		admin:               admin.NewHandler(logger, tpl, applicationRepo, clientRepo, operatorLogin, operatorSessions),
-		registrationEnabled: cfg.RegistrationEnabled,
 	}
 
 	a.server = &http.Server{
@@ -88,10 +83,6 @@ func (a *App) routes() http.Handler {
 	fileServer := http.FileServer(http.FS(staticFS))
 
 	mux.HandleFunc("GET /healthz", a.healthHandler)
-	mux.HandleFunc("GET /login", a.loginPageHandler)
-	mux.HandleFunc("POST /auth/login", a.loginHandler)
-	mux.HandleFunc("POST /auth/register", a.registerHandler)
-	mux.HandleFunc("POST /auth/logout", a.logoutHandler)
 	mux.HandleFunc("GET /", a.rootHandler)
 	mux.HandleFunc("GET /setup", a.setupPageHandler)
 	mux.HandleFunc("POST /setup", a.setupHandler)

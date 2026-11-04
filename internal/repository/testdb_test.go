@@ -63,14 +63,6 @@ func seedUser(t *testing.T, tx *gorm.DB, u db.User) db.User {
 	return u
 }
 
-func seedCredential(t *testing.T, tx *gorm.DB, c db.UserCredential) db.UserCredential {
-	t.Helper()
-	if err := tx.Create(&c).Error; err != nil {
-		t.Fatalf("seeding credential: %v", err)
-	}
-	return c
-}
-
 func seedSession(t *testing.T, tx *gorm.DB, s db.Session) db.Session {
 	t.Helper()
 	if err := tx.Create(&s).Error; err != nil {

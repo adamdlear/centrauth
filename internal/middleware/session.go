@@ -38,16 +38,6 @@ func Session(next http.Handler, manager *session.Manager, users repository.UserR
 	})
 }
 
-func RequireAuth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if UserFromContext(r.Context()) == nil {
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
 func UserFromContext(ctx context.Context) *db.User {
 	u, _ := ctx.Value(userKey).(*db.User)
 	return u

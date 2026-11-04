@@ -76,7 +76,7 @@ func (h *Handler) dashboardData(ctx context.Context) (dashboardPageData, error) 
 
 func (h *Handler) renderDashboard(w http.ResponseWriter, data dashboardPageData) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := h.templates.Dashboard.ExecuteTemplate(w, "dashboard.html", data); err != nil {
+	if err := h.templates.Get("dashboard.html").ExecuteTemplate(w, "dashboard.html", data); err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 	}
 }

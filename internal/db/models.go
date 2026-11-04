@@ -16,17 +16,6 @@ type User struct {
 
 func (User) TableName() string { return "users" }
 
-type UserCredential struct {
-	ID           int64     `gorm:"primaryKey;autoIncrement"`
-	UserID       int64     `gorm:"column:user_id;not null;uniqueIndex:idx_user_credentials_user_method"`
-	Method       string    `gorm:"not null;uniqueIndex:idx_user_credentials_user_method"`
-	PasswordHash *string   `gorm:"column:password_hash"`
-	CreatedAt    time.Time `gorm:"not null"`
-	UpdatedAt    time.Time `gorm:"not null"`
-}
-
-func (UserCredential) TableName() string { return "user_credentials" }
-
 type Session struct {
 	ID        int64      `gorm:"primaryKey;autoIncrement"`
 	TokenHash []byte     `gorm:"column:token_hash;not null;uniqueIndex"`

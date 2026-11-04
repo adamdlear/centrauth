@@ -9,17 +9,25 @@ import (
 var templateFiles embed.FS
 
 type Templates struct {
-	Login         *template.Template
-	Dashboard     *template.Template
-	Setup         *template.Template
-	OperatorLogin *template.Template
+	pages map[string]*template.Template
+}
+
+var pages = []string{
+	"dashboard.html",
+	"setup.html",
+	"operator_login.html",
 }
 
 func New() *Templates {
-	login := template.Must(template.New("login.html").ParseFS(templateFiles, "base.html", "login.html"))
-	dashboard := template.Must(template.New("dashboard.html").ParseFS(templateFiles, "base.html", "dashboard.html"))
-	setup := template.Must(template.New("setup.html").ParseFS(templateFiles, "base.html", "setup.html"))
-	operatorLogin := template.Must(template.New("operator_login.html").ParseFS(templateFiles, "base.html", "operator_login.html"))
+	parsed := make(map[string]*template.Template, len(pages))
+	for _, page := range pages {
+		parsed[page] = template.Must(template.New(page).ParseFS(templateFiles, "base.html", page))
+	}
+	return &Templates{pages: parsed}
+}
 
-	return &Templates{Login: login, Dashboard: dashboard, Setup: setup, OperatorLogin: operatorLogin}
+// Get returns the parsed template set for a page file (for example
+// "dashboard.html").
+func (t *Templates) Get(page string) *template.Template {
+	return t.pages[page]
 }
