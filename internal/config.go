@@ -12,13 +12,14 @@ import (
 )
 
 type ServerConfig struct {
-	Addr           string
-	IssuerURL      string
-	SigningKeyPath string
-	IDTokenTTL     time.Duration
-	ReadTimeout    time.Duration
-	WriteTimeout   time.Duration
-	IdleTimeout    time.Duration
+	Addr                  string
+	IssuerURL             string
+	SigningKeyPath        string
+	ProviderSecretKeyPath string
+	IDTokenTTL            time.Duration
+	ReadTimeout           time.Duration
+	WriteTimeout          time.Duration
+	IdleTimeout           time.Duration
 }
 
 type AppConfig struct {
@@ -47,6 +48,11 @@ func LoadConfig() (AppConfig, error) {
 	signingKeyPath := os.Getenv("SIGNING_KEY_PATH")
 	if signingKeyPath == "" {
 		signingKeyPath = "./signing-key.pem"
+	}
+
+	providerSecretKeyPath := os.Getenv("PROVIDER_SECRET_KEY_PATH")
+	if providerSecretKeyPath == "" {
+		providerSecretKeyPath = "./provider-secret.key"
 	}
 
 	idTokenTTL := 10 * time.Minute
@@ -90,13 +96,14 @@ func LoadConfig() (AppConfig, error) {
 
 	return AppConfig{
 		ServerConfig: ServerConfig{
-			Addr:           serverAddr,
-			IssuerURL:      issuerURL,
-			SigningKeyPath: signingKeyPath,
-			IDTokenTTL:     idTokenTTL,
-			ReadTimeout:    10 * time.Second,
-			WriteTimeout:   15 * time.Second,
-			IdleTimeout:    60 * time.Second,
+			Addr:                  serverAddr,
+			IssuerURL:             issuerURL,
+			SigningKeyPath:        signingKeyPath,
+			ProviderSecretKeyPath: providerSecretKeyPath,
+			IDTokenTTL:            idTokenTTL,
+			ReadTimeout:           10 * time.Second,
+			WriteTimeout:          15 * time.Second,
+			IdleTimeout:           60 * time.Second,
 		},
 		DBConfig: db.DBConfig{
 			Host:     os.Getenv("DB_HOST"),

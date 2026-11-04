@@ -1,0 +1,30 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<div class="entry">
+  <main class="authpanel">
+    <header class="tblock">
+      <div class="tblock-cell"><span class="mark"></span><span class="wordmark">centrauth</span></div>
+      <div class="tblock-cell"><span class="tblock-tag">continue to app</span></div>
+      <div class="tblock-cell"><span class="led" aria-hidden="true"></span></div>
+    </header>
+
+    <div class="authbody">
+      <div class="appctx">
+        <p class="appctx-tag">Sign in to continue to</p>
+        <p class="appctx-name">{{.AppName}}</p>
+      </div>
+
+      <div class="alert" role="alert">
+        No sign-in method is configured for this app. Ask its owner to enable an identity provider.
+      </div>
+      <p class="hint">The authorization request has been preserved and will resume once this app has a sign-in method.</p>
+    </div>
+
+    <footer class="authfoot">
+      <div class="authfoot-cell">self-hosted sso</div>
+      <div class="authfoot-cell mono">{{.ClientID}}</div>
+    </footer>
+  </main>
+</div>
+{{end}}

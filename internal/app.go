@@ -17,6 +17,7 @@ import (
 	"github.com/adamdlear/centrauth/internal/middleware"
 	"github.com/adamdlear/centrauth/internal/oidc"
 	"github.com/adamdlear/centrauth/internal/repository"
+	"github.com/adamdlear/centrauth/internal/secrets"
 	"github.com/adamdlear/centrauth/internal/service"
 	"github.com/adamdlear/centrauth/internal/session"
 	"github.com/adamdlear/centrauth/internal/signing"
@@ -32,7 +33,11 @@ type App struct {
 	operatorSessions *session.OperatorManager
 	users            repository.UserRepository
 	operators        repository.OperatorRepository
+	applications     repository.ApplicationRepository
+	clients          repository.ClientRepository
 	admin            *admin.Handler
+	codes            repository.CodeRepository
+	secrets          *secrets.Box
 	keyManager       *signing.KeyManager
 	discovery        oidc.DiscoveryConfig
 	idTokens         *oidc.IDTokenIssuer
@@ -54,10 +59,15 @@ func NewApp(cfg AppConfig, database *db.DB) (*App, error) {
 	applicationRepo := repository.NewGormApplicationRepo(database.Client)
 	operatorRepo := repository.NewGormOperatorRepo(database.Client)
 	operatorSessionRepo := repository.NewGormOperatorSessionRepo(database.Client)
+	codeRepo := repository.NewGormCodeRepo(database.Client)
 
 	keyManager, err := signing.NewKeyManager(cfg.ServerConfig.SigningKeyPath)
 	if err != nil {
 		return nil, fmt.Errorf("initialize signing key: %w", err)
+	}
+	secretBox, err := secrets.NewBoxFromKeyFile(cfg.ServerConfig.ProviderSecretKeyPath)
+	if err != nil {
+		return nil, fmt.Errorf("initialize provider secret key: %w", err)
 	}
 
 	tpl := templates.New()
@@ -73,10 +83,14 @@ func NewApp(cfg AppConfig, database *db.DB) (*App, error) {
 		operatorSessions: operatorSessions,
 		users:            userRepo,
 		operators:        operatorRepo,
+		applications:     applicationRepo,
+		clients:          clientRepo,
 		admin:            admin.NewHandler(logger, tpl, applicationRepo, clientRepo, service.NewAppService(applicationRepo, clientRepo), operatorLogin, operatorSessions),
 		keyManager:       keyManager,
 		discovery:        oidc.NewDiscoveryConfig(cfg.ServerConfig.IssuerURL),
 		idTokens:         oidc.NewIDTokenIssuer(keyManager, cfg.ServerConfig.IssuerURL, cfg.ServerConfig.IDTokenTTL),
+		codes:            codeRepo,
+		secrets:          secretBox,
 	}
 
 	a.server = &http.Server{
@@ -99,6 +113,8 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /healthz", a.healthHandler)
 	mux.HandleFunc("GET /.well-known/jwks.json", a.jwksHandler)
 	mux.HandleFunc("GET /.well-known/openid-configuration", a.discoveryHandler)
+	mux.HandleFunc("GET /authorize", a.authorizeHandler)
+	mux.HandleFunc("POST /token", a.tokenHandler)
 	mux.HandleFunc("GET /", a.rootHandler)
 	mux.HandleFunc("GET /setup", a.setupPageHandler)
 	mux.HandleFunc("POST /setup", a.setupHandler)
@@ -108,7 +124,7 @@ func (a *App) routes() http.Handler {
 	var handler http.Handler = mux
 	handler = middleware.Session(handler, a.sessions, a.users)
 	handler = middleware.OperatorSession(handler, a.operatorSessions, a.operators)
-	handler = middleware.CSRF(handler)
+	handler = middleware.CSRFExcept(handler, "/token")
 	handler = middleware.Logger(handler)
 
 	return handler

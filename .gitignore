@@ -6,3 +6,4 @@ coverage.out
 *.swp
 /tmp/
 signing-key.pem
+provider-secret.key

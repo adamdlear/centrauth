@@ -24,6 +24,8 @@ var pages = []string{
 	"client_new.html",
 	"client_registered.html",
 	"client_detail.html",
+	"authorize_prompt.html",
+	"authorize_error.html",
 }
 
 func New() *Templates {

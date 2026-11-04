@@ -1,0 +1,25 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<div class="entry">
+  <main class="authpanel">
+    <header class="tblock">
+      <div class="tblock-cell"><span class="mark"></span><span class="wordmark">centrauth</span></div>
+      <div class="tblock-cell"><span class="tblock-tag">authorization error</span></div>
+      <div class="tblock-cell"><span class="led" aria-hidden="true"></span></div>
+    </header>
+
+    <div class="authbody">
+      <div class="alert" role="alert">
+        <strong>{{.Code}}</strong>
+        <p>{{.Message}}</p>
+      </div>
+      <p class="hint">The request was rejected before it reached the application.</p>
+    </div>
+
+    <footer class="authfoot">
+      <div class="authfoot-cell">self-hosted sso</div>
+    </footer>
+  </main>
+</div>
+{{end}}

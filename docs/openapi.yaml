@@ -1,41 +1,34 @@
-# OpenAPI spec for the core auth API of centrauth.
+# OpenAPI spec for the core OIDC API of centrauth.
 #
-# Scope: routes intended for SDK clients (health + auth endpoints).
-# The admin UI routes (GET /admin, POST /admin/auth/*, etc.) and the
-# browser-only HTML flows (/login, /setup) are intentionally excluded.
+# Scope: protocol endpoints used by OIDC/OAuth clients (health, discovery,
+# JWKS, authorization, and token exchange).
 #
-# Notes:
-#   - Auth endpoints are form-encoded and return redirects with session
-#     cookies, not JSON tokens.
-#   - CSRF protection: http.NewCrossOriginProtection is applied globally,
-#     so cross-origin requests must complete a trusted-origin handshake or
-#     come from a trusted origin (Sec-Fetch-Site: same-origin / same-site).
+# The admin UI routes (/admin, /setup, operator login/logout) are
+# intentionally excluded. They are server-rendered HTML and not an API.
 openapi: 3.0.3
 info:
-  title: centrauth Auth API
+  title: centrauth OIDC API
   description: |
-    centrauth is a self-hosted authentication service.
+    centrauth is a self-hosted OpenID Connect provider.
 
-    This document describes the **core API routes that SDK clients use**:
+    This document covers the protocol endpoints a relying party uses:
 
+    - `GET /.well-known/openid-configuration` — OIDC discovery metadata
+    - `GET /.well-known/jwks.json` — public signing keys
+    - `GET /authorize` — start the authorization code flow (PKCE required)
+    - `POST /token` — exchange an authorization code for an ID token
     - `GET /healthz` — service health probe
-    - `POST /auth/login` — authenticate an end user
-    - `POST /auth/register` — create a new end-user account
-    - `POST /auth/logout` — revoke the end-user session
 
     ### Conventions
-    - Requests use `application/x-www-form-urlencoded` bodies (HTML-friendly
-      and easy to emit from any SDK).
-    - Successful login/register/logout respond with an HTTP redirect plus a
-      session cookie; there is no JSON token in the body.
-    - All state-changing endpoints are protected by Origin/CSRF checking
-      (Go's `CrossOriginProtection`).
-  version: 0.1.0
+    - The authorization code flow is the only supported flow
+      (`response_type=code`).
+    - PKCE is mandatory. `code_challenge_method` must be `S256`.
+    - `nonce` is required when the `openid` scope is requested.
+    - All endpoint URLs are absolute and derived from `ISSUER_URL`.
+  version: 0.2.0
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-security:
-  - cookieAuth: []
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -44,8 +37,10 @@ servers:
 tags:
   - name: Health
     description: Service and database health probes
-  - name: Auth
-    description: End-user authentication, registration, and session lifecycle
+  - name: Discovery
+    description: OIDC metadata and signing keys
+  - name: OAuth
+    description: Authorization code flow with PKCE
 paths:
   /healthz:
     get:
@@ -74,168 +69,347 @@ paths:
                 $ref: '#/components/schemas/HealthStatus'
               example:
                 status: unavailable
-  /auth/login:
-    post:
-      operationId: login
+  /.well-known/openid-configuration:
+    get:
+      operationId: getDiscoveryDocument
+      security: []
       tags:
-        - Auth
-      summary: Authenticate an end user
+        - Discovery
+      summary: Fetch OIDC discovery metadata
       description: |
-        Verifies the email/password pair and starts a session by setting the
-        session cookie (`centrauth_session` by default). Returns a redirect
-        to the admin dashboard.
+        Returns the provider metadata document. `issuer` matches `ISSUER_URL`
+        exactly, without a trailing slash.
+      responses:
+        '200':
+          description: Discovery document
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: public, max-age=3600
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoveryDocument'
+  /.well-known/jwks.json:
+    get:
+      operationId: getJWKS
+      security: []
+      tags:
+        - Discovery
+      summary: Fetch the public signing keys
+      description: |
+        Returns the JSON Web Key Set used to verify ID token signatures. The
+        response contains public key material only.
+      responses:
+        '200':
+          description: JSON Web Key Set
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: public, max-age=3600
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JWKS'
+  /authorize:
+    get:
+      operationId: authorize
+      security: []
+      tags:
+        - OAuth
+      summary: Start an authorization code flow
+      description: |
+        Validates the client and request, then either redirects back to the
+        client with an authorization code or shows the flow sign-in prompt.
+
+        `client_id` and `redirect_uri` are validated before any redirect. If
+        either is invalid, the provider returns an HTML error page and does
+        **not** redirect, because the redirect URI may be attacker-controlled.
+        Other request errors redirect to the registered `redirect_uri` with
+        `error` and `state` parameters.
+      parameters:
+        - name: client_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: redirect_uri
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+        - name: response_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [code]
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            example: openid profile email
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: nonce
+          in: query
+          required: false
+          description: Required when `openid` is requested.
+          schema:
+            type: string
+        - name: code_challenge
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: code_challenge_method
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [S256]
+      responses:
+        '302':
+          description: |
+            Redirect to the client with `code` and `state`, or with an OAuth
+            error (`error`, `error_description`, `state`).
+          headers:
+            Location:
+              schema:
+                type: string
+        '200':
+          description: |
+            Flow sign-in prompt (HTML). Shown when no user session exists. Until
+            identity providers are configured, the prompt explains that no
+            sign-in method is available for the app.
+          content:
+            text/html:
+              schema:
+                type: string
+        '400':
+          description: |
+            Invalid or unknown client, or an unregistered redirect URI. The
+            response is an HTML error page and never a redirect.
+          content:
+            text/html:
+              schema:
+                type: string
+  /token:
+    post:
+      operationId: exchangeToken
+      security: []
+      tags:
+        - OAuth
+      summary: Exchange an authorization code for tokens
+      description: |
+        Verifies the authorization code, PKCE verifier, redirect URI, and
+        client authentication, atomically consumes the code, and returns an ID
+        token (when `openid` was requested) plus an opaque bearer access token.
+
+        This endpoint is intended for server-to-server calls and is not
+        CSRF-protected.
+
+        Phase 1 does not expose a resource endpoint that accepts the bearer
+        access token; it is present so standard OAuth2 clients can complete the
+        exchange.
       requestBody:
         required: true
         content:
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/LoginRequest'
+              $ref: '#/components/schemas/TokenRequest'
       responses:
-        '303':
-          description: Authenticated; session cookie set, redirecting to /admin
-          headers:
-            Location:
-              description: Redirect target
-              schema:
-                type: string
-                example: /admin
-            Set-Cookie:
-              description: |
-                Session cookie (default name `centrauth_session`, HttpOnly).
-                Secure flag set when the issuer URL uses HTTPS.
-              schema:
-                type: string
         '200':
-          description: |
-            Invalid email or password — re-renders the sign-in page with an
-            error (HTML, not JSON).
-          content:
-            text/html:
-              schema:
-                type: string
-        '500':
-          description: Internal error
-          content:
-            text/html:
-              schema:
-                type: string
-  /auth/register:
-    post:
-      operationId: register
-      tags:
-        - Auth
-      summary: Create a new user account and start a session
-      description: |
-        Creates a user, starts a session (session cookie), and redirects to
-        the admin dashboard. Only available when registration is enabled
-        (`ENABLE_REGISTRATION=true`); otherwise responds `403`.
-      requestBody:
-        required: true
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/RegisterRequest'
-      responses:
-        '303':
-          description: Account created; session cookie set, redirecting to /admin
+          description: Tokens issued
           headers:
-            Location:
+            Cache-Control:
               schema:
                 type: string
-                example: /admin
-            Set-Cookie:
-              description: Session cookie (default name `centrauth_session`)
+                example: no-store
+            Pragma:
               schema:
                 type: string
-        '403':
-          description: Registration is disabled
+                example: no-cache
           content:
-            text/html:
+            application/json:
               schema:
-                type: string
-        '200':
-          description: |
-            Validation failure (passwords must match) — re-renders the
-            sign-in page with an error (HTML, not JSON).
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Invalid request or grant
           content:
-            text/html:
+            application/json:
               schema:
-                type: string
-        '500':
-          description: Internal error
-          content:
-            text/html:
-              schema:
-                type: string
-  /auth/logout:
-    post:
-      operationId: logout
-      tags:
-        - Auth
-      summary: Revoke the current session
-      description: |
-        Revokes the session identified by the session cookie and clears the
-        cookie. Always redirects to the login page, even when no valid
-        session cookie was present.
-      responses:
-        '303':
-          description: Session revoked (or none present); cookie cleared
+                $ref: '#/components/schemas/OAuthError'
+        '401':
+          description: Client authentication failed
           headers:
-            Location:
+            WWW-Authenticate:
               schema:
                 type: string
-                example: /login
-            Set-Cookie:
-              description: Expired/replacement session cookie
+                example: Basic realm="token"
+          content:
+            application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/OAuthError'
 components:
-  securitySchemes:
-    cookieAuth:
-      type: apiKey
-      in: cookie
-      name: centrauth_session
-      description: HttpOnly session cookie issued by POST /auth/login,
-        /auth/register, or POST /setup.
   schemas:
     HealthStatus:
       type: object
-      title: HealthStatus
       required: [status]
       properties:
         status:
           type: string
           enum: [ok, unavailable]
-          description: Current health of the service
-    LoginRequest:
+    DiscoveryDocument:
       type: object
-      title: LoginRequest
-      required: [email, password]
+      required:
+        - issuer
+        - authorization_endpoint
+        - token_endpoint
+        - jwks_uri
+        - response_types_supported
+        - subject_types_supported
+        - id_token_signing_alg_values_supported
       properties:
-        email:
+        issuer:
           type: string
-          format: email
-          example: user@example.com
-        password:
+          format: uri
+        authorization_endpoint:
           type: string
-          format: password
-          example: hunter2
-    RegisterRequest:
+          format: uri
+        token_endpoint:
+          type: string
+          format: uri
+        userinfo_endpoint:
+          type: string
+          format: uri
+        jwks_uri:
+          type: string
+          format: uri
+        response_types_supported:
+          type: array
+          items:
+            type: string
+          example: [code]
+        grant_types_supported:
+          type: array
+          items:
+            type: string
+          example: [authorization_code]
+        subject_types_supported:
+          type: array
+          items:
+            type: string
+          example: [public]
+        id_token_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+          example: [RS256]
+        scopes_supported:
+          type: array
+          items:
+            type: string
+          example: [openid, profile, email]
+        token_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+          example: [client_secret_basic, client_secret_post, none]
+        code_challenge_methods_supported:
+          type: array
+          items:
+            type: string
+          example: [S256]
+        claims_supported:
+          type: array
+          items:
+            type: string
+    JWKS:
       type: object
-      title: RegisterRequest
-      required: [email, password, password_confirm]
+      required: [keys]
       properties:
-        email:
+        keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/JWK'
+    JWK:
+      type: object
+      required: [kty, kid, use, alg, n, e]
+      properties:
+        kty:
           type: string
-          format: email
-          example: user@example.com
-        password:
+          example: RSA
+        kid:
           type: string
-          format: password
-          minLength: 8
-          example: correct-horse-battery-staple
-        password_confirm:
+        use:
           type: string
-          format: password
-          description: Must equal `password`
-          example: hunter2
+          example: sig
+        alg:
+          type: string
+          example: RS256
+        n:
+          type: string
+          description: Base64url-encoded RSA modulus
+        e:
+          type: string
+          description: Base64url-encoded RSA exponent
+          example: AQAB
+    TokenRequest:
+      type: object
+      required: [grant_type, code, redirect_uri, code_verifier]
+      properties:
+        grant_type:
+          type: string
+          enum: [authorization_code]
+        code:
+          type: string
+        redirect_uri:
+          type: string
+          format: uri
+        code_verifier:
+          type: string
+          minLength: 43
+          maxLength: 128
+        client_id:
+          type: string
+          description: Required for public clients and `client_secret_post`.
+        client_secret:
+          type: string
+          description: Required for confidential clients using `client_secret_post`.
+    TokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+        id_token:
+          type: string
+          description: Present when the `openid` scope was requested.
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          example: 600
+    OAuthError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          enum:
+            - invalid_request
+            - invalid_client
+            - invalid_grant
+            - unsupported_grant_type
+            - server_error
+        error_description:
+          type: string
