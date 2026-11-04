@@ -36,10 +36,14 @@ func (r *gormCodeRepo) GetByCodeHash(ctx context.Context, codeHash []byte) (db.O
 	return code, err
 }
 
+// Consume atomically marks a code as used. The conditional update ensures that
+// exactly one caller can consume a code, and that expired codes cannot be
+// consumed.
 func (r *gormCodeRepo) Consume(ctx context.Context, id int64) error {
 	rows, err := gorm.G[db.OAuthAuthorizationCode](r.db).
 		Where("id = ?", id).
 		Where("consumed_at IS NULL").
+		Where("expires_at > ?", time.Now()).
 		Update(ctx, "consumed_at", time.Now())
 	if err != nil {
 		return err
@@ -48,4 +52,9 @@ func (r *gormCodeRepo) Consume(ctx context.Context, id int64) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+// IsConsumed reports whether an authorization code has already been exchanged.
+func IsConsumed(code *db.OAuthAuthorizationCode) bool {
+	return code.ConsumedAt != nil
 }

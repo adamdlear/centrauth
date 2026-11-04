@@ -29,11 +29,17 @@ func TestCodeRepo_CreateAndGetByCodeHash(t *testing.T) {
 	user, client := seedCodePrereqs(t, tx)
 	repo := NewGormCodeRepo(tx)
 
+	nonce := "nonce-123"
 	created, err := repo.Create(context.Background(), &db.OAuthAuthorizationCode{
-		CodeHash:      []byte("code-repo-test-hash"),
-		OAuthClientID: client.ID,
-		UserID:        user.ID,
-		ExpiresAt:     time.Now().Add(10 * time.Minute),
+		CodeHash:            []byte("code-repo-test-hash"),
+		OAuthClientID:       client.ID,
+		UserID:              user.ID,
+		RedirectURI:         "https://example.com/callback",
+		Scope:               "openid profile",
+		Nonce:               &nonce,
+		CodeChallenge:       "challenge-value",
+		CodeChallengeMethod: "S256",
+		ExpiresAt:           time.Now().Add(10 * time.Minute),
 	})
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)
@@ -42,26 +48,61 @@ func TestCodeRepo_CreateAndGetByCodeHash(t *testing.T) {
 		t.Error("Create() did not backfill ID")
 	}
 
-	tests := []struct {
-		name     string
-		codeHash []byte
-		wantErr  error
-	}{
-		{"existing code", []byte("code-repo-test-hash"), nil},
-		{"unknown code hash", []byte("code-repo-no-such-hash"), ErrNotFound},
+	code, err := repo.GetByCodeHash(context.Background(), []byte("code-repo-test-hash"))
+	if err != nil {
+		t.Fatalf("GetByCodeHash() error = %v", err)
+	}
+	if code.UserID != user.ID {
+		t.Errorf("GetByCodeHash() returned userID %d, want %d", code.UserID, user.ID)
+	}
+	if code.OAuthClientID != client.ID {
+		t.Errorf("GetByCodeHash() returned clientID %d, want %d", code.OAuthClientID, client.ID)
+	}
+	if code.RedirectURI != "https://example.com/callback" {
+		t.Errorf("RedirectURI = %q, want %q", code.RedirectURI, "https://example.com/callback")
+	}
+	if code.Scope != "openid profile" {
+		t.Errorf("Scope = %q, want %q", code.Scope, "openid profile")
+	}
+	if code.Nonce == nil || *code.Nonce != nonce {
+		t.Errorf("Nonce = %v, want %q", code.Nonce, nonce)
+	}
+	if code.CodeChallenge != "challenge-value" {
+		t.Errorf("CodeChallenge = %q, want %q", code.CodeChallenge, "challenge-value")
+	}
+	if code.CodeChallengeMethod != "S256" {
+		t.Errorf("CodeChallengeMethod = %q, want %q", code.CodeChallengeMethod, "S256")
+	}
+	if IsConsumed(&code) {
+		t.Error("IsConsumed() = true for a fresh code, want false")
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			code, err := repo.GetByCodeHash(context.Background(), tt.codeHash)
+	if _, err := repo.GetByCodeHash(context.Background(), []byte("code-repo-no-such-hash")); !errors.Is(err, ErrNotFound) {
+		t.Errorf("GetByCodeHash() for unknown hash error = %v, want %v", err, ErrNotFound)
+	}
+}
 
-			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("GetByCodeHash(%q) error = %v, want %v", tt.codeHash, err, tt.wantErr)
-			}
-			if err == nil && code.UserID != user.ID {
-				t.Errorf("GetByCodeHash() returned userID %d, want %d", code.UserID, user.ID)
-			}
-		})
+func TestCodeRepo_NonceNullable(t *testing.T) {
+	tx := newTestTx(t)
+	user, client := seedCodePrereqs(t, tx)
+	repo := NewGormCodeRepo(tx)
+
+	if _, err := repo.Create(context.Background(), &db.OAuthAuthorizationCode{
+		CodeHash:      []byte("code-repo-no-nonce-hash"),
+		OAuthClientID: client.ID,
+		UserID:        user.ID,
+		RedirectURI:   "https://example.com/callback",
+		ExpiresAt:     time.Now().Add(10 * time.Minute),
+	}); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	code, err := repo.GetByCodeHash(context.Background(), []byte("code-repo-no-nonce-hash"))
+	if err != nil {
+		t.Fatalf("GetByCodeHash() error = %v", err)
+	}
+	if code.Nonce != nil {
+		t.Errorf("Nonce = %v, want nil", code.Nonce)
 	}
 }
 
@@ -87,6 +128,9 @@ func TestCodeRepo_Consume(t *testing.T) {
 	if got.ConsumedAt == nil {
 		t.Error("Consume() did not set ConsumedAt")
 	}
+	if !IsConsumed(&got) {
+		t.Error("IsConsumed() = false after Consume(), want true")
+	}
 
 	if err := repo.Consume(context.Background(), code.ID); !errors.Is(err, ErrNotFound) {
 		t.Errorf("Consume() on already-consumed code: error = %v, want %v", err, ErrNotFound)
@@ -94,5 +138,21 @@ func TestCodeRepo_Consume(t *testing.T) {
 
 	if err := repo.Consume(context.Background(), code.ID+1000); !errors.Is(err, ErrNotFound) {
 		t.Errorf("Consume() on nonexistent ID: error = %v, want %v", err, ErrNotFound)
+	}
+}
+
+func TestCodeRepo_ConsumeRejectsExpiredCode(t *testing.T) {
+	tx := newTestTx(t)
+	user, client := seedCodePrereqs(t, tx)
+	code := seedCode(t, tx, db.OAuthAuthorizationCode{
+		CodeHash:      []byte("code-repo-expired-hash"),
+		OAuthClientID: client.ID,
+		UserID:        user.ID,
+		ExpiresAt:     time.Now().Add(-time.Minute),
+	})
+	repo := NewGormCodeRepo(tx)
+
+	if err := repo.Consume(context.Background(), code.ID); !errors.Is(err, ErrNotFound) {
+		t.Errorf("Consume() on expired code: error = %v, want %v", err, ErrNotFound)
 	}
 }

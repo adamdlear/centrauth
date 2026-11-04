@@ -80,14 +80,19 @@ type OAuthClient struct {
 func (OAuthClient) TableName() string { return "oauth_clients" }
 
 type OAuthAuthorizationCode struct {
-	ID            int64      `gorm:"primaryKey;autoIncrement"`
-	CodeHash      []byte     `gorm:"column:code_hash;not null;uniqueIndex"`
-	OAuthClientID int64      `gorm:"column:oauth_client_id;not null"`
-	UserID        int64      `gorm:"column:user_id;not null"`
-	ExpiresAt     time.Time  `gorm:"column:expires_at;not null;index"`
-	ConsumedAt    *time.Time `gorm:"column:consumed_at"`
-	CreatedAt     time.Time  `gorm:"not null"`
-	UpdatedAt     time.Time  `gorm:"not null"`
+	ID                  int64      `gorm:"primaryKey;autoIncrement"`
+	CodeHash            []byte     `gorm:"column:code_hash;not null;uniqueIndex"`
+	OAuthClientID       int64      `gorm:"column:oauth_client_id;not null"`
+	UserID              int64      `gorm:"column:user_id;not null"`
+	RedirectURI         string     `gorm:"column:redirect_uri;not null;default:''"`
+	Scope               string     `gorm:"column:scope;not null;default:''"`
+	Nonce               *string    `gorm:"column:nonce"`
+	CodeChallenge       string     `gorm:"column:code_challenge;not null;default:''"`
+	CodeChallengeMethod string     `gorm:"column:code_challenge_method;not null;default:'S256'"`
+	ExpiresAt           time.Time  `gorm:"column:expires_at;not null;index"`
+	ConsumedAt          *time.Time `gorm:"column:consumed_at"`
+	CreatedAt           time.Time  `gorm:"not null"`
+	UpdatedAt           time.Time  `gorm:"not null"`
 }
 
 func (OAuthAuthorizationCode) TableName() string { return "oauth_authorization_codes" }
